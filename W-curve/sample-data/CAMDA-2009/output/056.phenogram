@@ -1,0 +1,344 @@
+%!PS-Adobe-2.0
+%%Title: Phylip Tree Output
+%%DocumentFonts: (atend)
+%%Pages: 1 1
+%%BoundingBox: 0 0 612 792
+%%DocumentPaperSizes: Letter
+%%Orientation: Portrait
+%%EndComments
+/l {newpath moveto lineto stroke} def
+%%EndProlog
+%%
+%%Page: 1 1
+%%PageBoundingBox: 0 0 585 765
+%%PageFonts: (atend)
+%%BeginPageSetup
+%%PaperSize: Letter
+ 1 setlinecap 
+ 1 setlinejoin  
+    1.36 setlinewidth newpath 
+   74.06   300.27    93.48   300.27 l
+   93.48   300.27    93.48   315.23 l
+   93.48   315.23    95.47   315.23 l
+   95.47   315.23    95.47   525.10 l
+   95.47   525.10    97.90   525.10 l
+   97.90   525.10    97.90   732.89 l
+   97.90   732.89   126.62   732.89 l
+   97.90   525.10    97.90   493.24 l
+   97.90   493.24    98.56   493.24 l
+   98.56   493.24    98.56   710.28 l
+   98.56   710.28    98.56   710.28 l
+   98.56   493.24    98.56   269.12 l
+   98.56   269.12    98.72   269.12 l
+   98.72   269.12    98.72   303.74 l
+   98.72   303.74    98.89   303.74 l
+   98.89   303.74    98.89   360.93 l
+   98.89   360.93   100.27   360.93 l
+  100.27   360.93   100.27   467.50 l
+  100.27   467.50   116.62   467.50 l
+  116.62   467.50   116.62   583.64 l
+  116.62   583.64   125.07   583.64 l
+  125.07   583.64   125.07   668.33 l
+  125.07   668.33   136.01   668.33 l
+  136.01   668.33   136.01   687.67 l
+  136.01   687.67   144.96   687.67 l
+  136.01   668.33   136.01   647.12 l
+  136.01   647.12   149.93   647.12 l
+  149.93   647.12   149.93   665.07 l
+  149.93   665.07   149.93   665.07 l
+  149.93   647.12   149.93   616.05 l
+  149.93   616.05   191.25   616.05 l
+  191.25   616.05   191.25   634.34 l
+  191.25   634.34   209.97   634.34 l
+  209.97   634.34   209.97   642.46 l
+  209.97   642.46   221.80   642.46 l
+  209.97   634.34   209.97   619.86 l
+  209.97   619.86   322.44   619.86 l
+  191.25   616.05   191.25   597.25 l
+  191.25   597.25   213.12   597.25 l
+  125.07   583.64   125.07   490.15 l
+  125.07   490.15   140.43   490.15 l
+  140.43   490.15   140.43   537.48 l
+  140.43   537.48   152.25   537.48 l
+  152.25   537.48   152.25   564.74 l
+  152.25   564.74   191.30   564.74 l
+  191.30   564.74   191.30   574.65 l
+  191.30   574.65   214.84   574.65 l
+  191.30   564.74   191.30   552.04 l
+  191.30   552.04   248.97   552.04 l
+  152.25   537.48   152.25   494.59 l
+  152.25   494.59   247.43   494.59 l
+  247.43   494.59   247.43   518.07 l
+  247.43   518.07   442.03   518.07 l
+  442.03   518.07   442.03   529.44 l
+  442.03   529.44   462.30   529.44 l
+  442.03   518.07   442.03   506.83 l
+  442.03   506.83   458.22   506.83 l
+  247.43   494.59   247.43   484.22 l
+  247.43   484.22   247.43   484.22 l
+  140.43   490.15   140.43   442.86 l
+  140.43   442.86   152.20   442.86 l
+  152.20   442.86   152.20   461.62 l
+  152.20   461.62   170.26   461.62 l
+  152.20   442.86   152.20   426.86 l
+  152.20   426.86   158.99   426.86 l
+  158.99   426.86   158.99   439.01 l
+  158.99   439.01   169.65   439.01 l
+  158.99   426.86   158.99   416.41 l
+  158.99   416.41   158.99   416.41 l
+  116.62   467.50   116.62   361.31 l
+  116.62   361.31   122.37   361.31 l
+  122.37   361.31   122.37   393.80 l
+  122.37   393.80   149.16   393.80 l
+  122.37   361.31   122.37   343.48 l
+  122.37   343.48   124.02   343.48 l
+  124.02   343.48   124.02   358.29 l
+  124.02   358.29   128.33   358.29 l
+  128.33   358.29   128.33   371.20 l
+  128.33   371.20   158.49   371.20 l
+  128.33   358.29   128.33   348.59 l
+  128.33   348.59   142.36   348.59 l
+  124.02   343.48   124.02   325.99 l
+  124.02   325.99   134.63   325.99 l
+  100.27   360.93   100.27   284.63 l
+  100.27   284.63   110.05   284.63 l
+  110.05   284.63   110.05   303.38 l
+  110.05   303.38   174.07   303.38 l
+  110.05   284.63   110.05   280.78 l
+  110.05   280.78   110.05   280.78 l
+   98.89   303.74    98.89   258.17 l
+   98.89   258.17    98.89   258.17 l
+   98.72   269.12    98.72   235.56 l
+   98.72   235.56    98.72   235.56 l
+   95.47   315.23    95.47   142.09 l
+   95.47   142.09    97.12   142.09 l
+   97.12   142.09    97.12   161.54 l
+   97.12   161.54   102.65   161.54 l
+  102.65   161.54   102.65   188.57 l
+  102.65   188.57   111.59   188.57 l
+  111.59   188.57   111.59   212.96 l
+  111.59   212.96   129.71   212.96 l
+  111.59   188.57   111.59   176.30 l
+  111.59   176.30   111.71   176.30 l
+  111.71   176.30   111.71   190.35 l
+  111.71   190.35   123.42   190.35 l
+  111.71   176.30   111.71   167.75 l
+  111.71   167.75   111.71   167.75 l
+  102.65   161.54   102.65   145.14 l
+  102.65   145.14   104.47   145.14 l
+   97.12   142.09    97.12   112.10 l
+   97.12   112.10   107.62   112.10 l
+  107.62   112.10   107.62   122.54 l
+  107.62   122.54   122.59   122.54 l
+  107.62   112.10   107.62    99.93 l
+  107.62    99.93   127.45    99.93 l
+   93.48   300.27    93.48    67.48 l
+   93.48    67.48   104.25    67.48 l
+  104.25    67.48   104.25    77.33 l
+  104.25    77.33   107.67    77.33 l
+  104.25    67.48   104.25    54.72 l
+  104.25    54.72   111.87    54.72 l
+   93.48   300.27    93.48    32.11 l
+   93.48    32.11   129.11    32.11 l
+ stroke    0.45 setlinewidth 
+1 setlinecap 1 setlinejoin 
+gsave
+/Times-Roman findfont 11.382450 scalefont setfont
+129.095334 729.118362 translate -0.000000 rotate
+0 0 moveto
+(M056-1) show
+grestore
+gsave
+/Times-Roman findfont 11.382450 scalefont setfont
+101.034187 706.512816 translate -0.000000 rotate
+0 0 moveto
+(M056-7) show
+grestore
+gsave
+/Times-Roman findfont 11.382450 scalefont setfont
+149.329687 683.907271 translate -0.000000 rotate
+0 0 moveto
+(P056-5) show
+grestore
+gsave
+/Times-Roman findfont 11.382450 scalefont setfont
+152.405972 661.301726 translate -0.000000 rotate
+0 0 moveto
+(M056-3) show
+grestore
+gsave
+/Times-Roman findfont 11.382450 scalefont setfont
+224.271232 638.696180 translate -0.000000 rotate
+0 0 moveto
+(M056-2) show
+grestore
+gsave
+/Times-Roman findfont 11.382450 scalefont setfont
+326.179191 616.090635 translate -0.000000 rotate
+0 0 moveto
+(CW056-8) show
+grestore
+gsave
+/Times-Roman findfont 11.382450 scalefont setfont
+215.598791 593.485090 translate -0.000000 rotate
+0 0 moveto
+(M056-4) show
+grestore
+gsave
+/Times-Roman findfont 11.382450 scalefont setfont
+218.574636 570.879544 translate -0.000000 rotate
+0 0 moveto
+(CW056-7) show
+grestore
+gsave
+/Times-Roman findfont 11.382450 scalefont setfont
+252.712015 548.273999 translate -0.000000 rotate
+0 0 moveto
+(CW056-6) show
+grestore
+gsave
+/Times-Roman findfont 11.382450 scalefont setfont
+466.674744 525.668454 translate -0.000000 rotate
+0 0 moveto
+(P056-6) show
+grestore
+gsave
+/Times-Roman findfont 11.382450 scalefont setfont
+462.587096 503.062908 translate -0.000000 rotate
+0 0 moveto
+(P056-7) show
+grestore
+gsave
+/Times-Roman findfont 11.382450 scalefont setfont
+251.797064 480.457363 translate -0.000000 rotate
+0 0 moveto
+(P056-2) show
+grestore
+gsave
+/Times-Roman findfont 11.382450 scalefont setfont
+174.628910 457.851818 translate -0.000000 rotate
+0 0 moveto
+(P056-8) show
+grestore
+gsave
+/Times-Roman findfont 11.382450 scalefont setfont
+174.021287 435.246272 translate -0.000000 rotate
+0 0 moveto
+(P056-10) show
+grestore
+gsave
+/Times-Roman findfont 11.382450 scalefont setfont
+163.360260 412.640727 translate -0.000000 rotate
+0 0 moveto
+(P056-1) show
+grestore
+gsave
+/Times-Roman findfont 11.382450 scalefont setfont
+152.896085 390.035182 translate -0.000000 rotate
+0 0 moveto
+(CW056-2) show
+grestore
+gsave
+/Times-Roman findfont 11.382450 scalefont setfont
+162.863114 367.429636 translate -0.000000 rotate
+0 0 moveto
+(P056-3) show
+grestore
+gsave
+/Times-Roman findfont 11.382450 scalefont setfont
+144.838300 344.824091 translate -0.000000 rotate
+0 0 moveto
+(M056-8) show
+grestore
+gsave
+/Times-Roman findfont 11.382450 scalefont setfont
+139.000091 322.218546 translate -0.000000 rotate
+0 0 moveto
+(P056-4) show
+grestore
+gsave
+/Times-Roman findfont 11.382450 scalefont setfont
+176.545187 299.613001 translate -0.000000 rotate
+0 0 moveto
+(M056-5) show
+grestore
+gsave
+/Times-Roman findfont 11.382450 scalefont setfont
+112.523791 277.007455 translate -0.000000 rotate
+0 0 moveto
+(M056-6) show
+grestore
+gsave
+/Times-Roman findfont 11.382450 scalefont setfont
+104.529939 254.401910 translate -0.000000 rotate
+0 0 moveto
+(I056-5) show
+grestore
+gsave
+/Times-Roman findfont 11.382450 scalefont setfont
+101.199903 231.796365 translate -0.000000 rotate
+0 0 moveto
+(M056-9) show
+grestore
+gsave
+/Times-Roman findfont 11.382450 scalefont setfont
+135.353010 209.190819 translate -0.000000 rotate
+0 0 moveto
+(I056-8) show
+grestore
+gsave
+/Times-Roman findfont 11.382450 scalefont setfont
+129.055824 186.585274 translate -0.000000 rotate
+0 0 moveto
+(I056-2) show
+grestore
+gsave
+/Times-Roman findfont 11.382450 scalefont setfont
+117.345266 163.979729 translate -0.000000 rotate
+0 0 moveto
+(I056-9) show
+grestore
+gsave
+/Times-Roman findfont 11.382450 scalefont setfont
+110.109026 141.374183 translate -0.000000 rotate
+0 0 moveto
+(I056-4) show
+grestore
+gsave
+/Times-Roman findfont 11.382450 scalefont setfont
+128.227246 118.768638 translate -0.000000 rotate
+0 0 moveto
+(I056-3) show
+grestore
+gsave
+/Times-Roman findfont 11.382450 scalefont setfont
+133.088232 96.163093 translate -0.000000 rotate
+0 0 moveto
+(I056-7) show
+grestore
+gsave
+/Times-Roman findfont 11.382450 scalefont setfont
+113.312857 73.557547 translate -0.000000 rotate
+0 0 moveto
+(I056-6) show
+grestore
+gsave
+/Times-Roman findfont 11.382450 scalefont setfont
+117.510982 50.952002 translate -0.000000 rotate
+0 0 moveto
+(I056-10) show
+grestore
+gsave
+/Times-Roman findfont 11.382450 scalefont setfont
+134.745387 28.346457 translate -0.000000 rotate
+0 0 moveto
+(I056-1) show
+grestore
+stroke     1.36 setlinewidth 
+ 1 setlinecap 1 setlinejoin 
+stroke showpage 
+
+%%PageTrailer
+%%PageFonts: Times-Roman
+%%Trailer
+%%DocumentFonts: Times-Roman
