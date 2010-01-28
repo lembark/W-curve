@@ -1,0 +1,89 @@
+########################################################################
+# housekeeping
+########################################################################
+
+package Testify;
+
+use v5.10;
+use strict;
+use FindBin::libs;
+use vars qw( %cornerz );
+
+use Test::More;
+use WCurve;
+
+########################################################################
+# package variables
+########################################################################
+
+# test simple combinations of corners first.
+
+*cornerz    = \%WCurve::cornerz;
+
+my @keyz    = keys %cornerz;
+
+my $trials  =  22;
+
+if( $ENV{ EXPENSIVE_TESTS } )
+{
+    plan tests  => 4 * $trials;
+}
+else
+{
+    plan skip_all => "export EXPENSIVE_TESTS=1 to run this test";
+
+    done_testing;
+}
+
+########################################################################
+# run tests
+########################################################################
+
+my $seq = ' ' x 2 ** $trials;
+$seq    = '';
+
+for( 1 .. $trials )
+{
+    print "prepare $_ ...\n";
+
+    my $length  = 2 ** $_;
+
+    substr $seq, $_, 1, $keyz[ rand @keyz ]
+    for 0 .. $length - 1;
+
+    print "generate Foo $length ...\n";
+
+    my $wc0 = WCurve->generate( $seq, 'Foo ' . $length );
+
+    print "generate Bar $length ...\n";
+
+    my $wc1 = WCurve->generate( $seq, 'Bar ' . $length );
+
+    $seq    = '';
+
+    for
+    (
+        [ $wc0, $wc0 ],
+        [ $wc1, $wc1 ],
+        [ $wc0, $wc1 ],
+        [ $wc1, $wc0 ],
+    )
+    {
+        local $" = " ";
+
+        ok ! $_->[0]->compare( simple => $_->[1] ), "@$_"
+    }
+
+    print "cleanup $_ ...\n";
+
+    undef $wc0;
+    undef $wc1;
+
+    print "complete $_ ...\n";
+}
+
+# this is not a module
+
+0
+
+__END__
