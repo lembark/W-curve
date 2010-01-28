@@ -1,3 +1,7 @@
-Public versions of W-curve code and data used in 
-published papers. Please see publicatons for 
-specific URI's used to extract the data.
+Public versions of W-curve code and data used in published papers
+and presentations.
+
+Please see publicatons for specific URI's used to referenced 
+materials (these will include branches). Otherwise feel free
+to wander through the repository. The "master" branch will
+always have a current, stable version of the code. 
