@@ -5,3 +5,9 @@ Please see publicatons for specific URI's used to referenced
 materials (these will include branches). Otherwise feel free
 to wander through the repository. The "master" branch will
 always have a current, stable version of the code. 
+
+Note: The tests are designed to run in reasonable time for 
+most situations. They test whether the code runs or suffers
+from rounding errors. For longer tests or benchmarks define
+EXPENSIVE_TESTS to run with longer random DNA strings or 
+to run tests that otherwise take too long.
