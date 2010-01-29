@@ -26,6 +26,7 @@ WriteMakefile
     Getopt::Long            => 0,
     IO::File                => 0,
     List::Util              => 0,
+    Pod::Usage              => 0,
     Scalar::Util            => 0,
     Storable                => 0,
     Test::More              => 0,
