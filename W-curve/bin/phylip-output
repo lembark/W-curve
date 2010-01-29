@@ -63,6 +63,19 @@ my %defaultz
     verbose 0
 ); 
 
+########################################################################
+# command line and sanity checks.
+########################################################################
+
+# not much going on if there wasn't any input
+
+@ARGV
+or pod2usage
+(
+    -verbose    => 0,
+    -exitval    => 1,
+);
+
 my %cmdline = ();
 
 GetOptions \%cmdline, @optz
@@ -71,13 +84,6 @@ or pod2usage
     -message    => 'Invalid command line options',
     -verbose    => 0,
     -exitval    => 2,
-);
-
-%cmdline
-or pod2usage
-(
-    -verbose    => 0,
-    -exitval    => 1,
 );
 
 $cmdline{ help }
