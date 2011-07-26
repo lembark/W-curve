@@ -1,0 +1,118 @@
+#!/opt/bin/perl
+########################################################################
+# housekeeping
+########################################################################
+
+use v5.10;
+use strict;
+use FindBin::libs;
+
+use Test::More;
+
+use File::Basename;
+
+use List::Util  qw( first );
+
+use WCurve;
+use WCurve::Values;
+
+use WCurve::Test::RandomDNA;
+use WCurve::Util::DumperConfig;
+
+########################################################################
+# package variables
+########################################################################
+
+my $base    = basename $0, '.t';
+
+my ( $comp_type, $frag_type ) = $base =~ m{ ^ \d+ - (\w+) - (\w+) }x;
+
+my $verbose = $ENV{ VERBOSE } || 0;
+my $passes  = $ENV{ PASSES  } || 1;
+my $size    = $ENV{ SIZE    } || 2 ** 8;
+
+my $base_seq    = generate_seq uniform_random => $size;
+
+my $comp        = WCurve::Compare->new( $comp_type => $verbose );
+
+$comp->payload->{ verbose } = $verbose;
+
+my $wc0         = WCurve->new( $frag_type => $base => $base_seq, [ Fixed => ]  );
+
+my $snp_window  = $wc0->fragment_type->snp_window;
+
+my $lower       = $snp_window;
+my $upper       = $size - $snp_window - 1;
+my $random      = 1 + $snp_window;
+
+########################################################################
+# utility subs
+########################################################################
+
+########################################################################
+# run test
+########################################################################
+
+PASS:
+for my $pass ( 1 .. $passes )
+{
+    $0  = "$base pass $pass";
+    print "\n$0\n";
+
+    my $alt_seq = $base_seq;
+    my $count   = 0;
+
+    for
+    (
+        my $offset  = $lower    ;
+        $offset < $upper        ;    
+        $offset  += int rand $random
+    )
+    {
+
+        my $pct     = int ( 100 * ++$count / $size );
+
+        munge_seq single_snp => $alt_seq, $offset;
+
+        my $wc1 = WCurve->new
+        (
+            FloatCyl => $base => $alt_seq, [ Munged => ]
+        );
+
+        eval
+        {
+            my $chunkz  = $comp->compare( $wc0, $wc1 );
+
+            my $gap     = $chunkz->[-2][3] - $chunkz->[-2][4];
+            my $end     = $chunkz->[-1][3];
+
+            die "Gap found in SNP-only seqence ($gap)"
+            if $gap;
+
+            die "Runt comparison: $end ($size)"
+            if $size > $end;
+
+            pass "Add SNP +$offset ($pct%)";
+
+            1
+        }
+        or do 
+        {
+            $comp->botched
+            (
+                compare => $@,
+                $wc0, $wc1
+            );
+
+            next PASS
+        }
+    }
+}
+
+done_testing;
+
+# this is not a module
+
+0
+
+__END__

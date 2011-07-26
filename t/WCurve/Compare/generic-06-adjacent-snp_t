@@ -1,0 +1,127 @@
+#!/opt/bin/perl
+########################################################################
+# housekeeping
+########################################################################
+
+use v5.10;
+use strict;
+use FindBin::libs;
+
+use Test::More;
+
+use File::Basename;
+
+use List::Util          qw( first );
+
+use WCurve::Test::RandomDNA;
+
+use WCurve;
+use WCurve::Values;
+use WCurve::Util::DumperConfig;
+
+use WCurve::Test::Cmdline;
+
+########################################################################
+# package variables
+########################################################################
+
+my %cmdline = test_opts;
+
+my ( $base, $comp_type, $frag_type )
+= @cmdline{ qw( base comp_type frag_type ) };
+
+my ( $passes, $verbose, $debug )
+= @cmdline{ qw( passes verbose debug ) };
+
+my ( $base_size )
+= @cmdline{ qw( base_size ) };
+
+my $comp
+= WCurve::Compare->new
+(
+    $comp_type,
+    verbose     => $cmdline{ verbose    },
+    debug       => $cmdline{ debug      },
+    payload    => $cmdline{ payload   },
+);
+
+my $snp_window  = WCurve->new( $frag_type )->fragment_type->snp_window;
+
+my $max_snp     //= $base_size - 2 * $snp_window;
+
+my $comp    = WCurve::Compare->new( $comp_type => $verbose );
+
+########################################################################
+# run test
+########################################################################
+
+PASS:
+for my $pass ( 1 .. $passes )
+{
+    $0  = "$base pass $pass";
+    print "\n$0\n";
+
+    my $base_seq    = generate_seq uniform_random => $base_size;
+    my $alt_seq     = $base_seq;
+
+    my $wc0         = WCurve->new( $frag_type => Fixed => $base_seq );
+
+    # enough SNP's that there should alwasys be 3 chunks.
+
+    print "Base seq: $base_seq\n"
+    if $verbose;
+
+    for my $offset ( $snp_window .. $max_snp )
+    {
+        my $base    = 1 + $offset;
+
+        munge_seq single_snp => $alt_seq, $offset;
+
+        print "Alt seq: $offset\n$alt_seq\n"
+        if $verbose;
+
+        my $wc1     = $wc0->new( "$offset -> $base" => $alt_seq );
+
+        eval
+        {
+            my @chunkz  = $comp->compare( $wc0, $wc1 );
+
+            my $count   = @chunkz;
+
+            print "\nChunkz:\n", Dumper \@chunkz, "\n"
+            if $verbose;
+
+            my $z0  = $chunkz[-2][1];
+            my $z1  = $chunkz[-2][2];
+
+            my $expect  = $offset + 4;
+
+            first { $_->[0] } @chunkz
+            or die "No difference found";
+
+            $z0 == $z1
+            or die "Gap: [ $z0 : $z1 ]";
+
+            $expect > $z0
+            or die "Late convergence: $z0 ($expect)";
+
+            pass "Mached: $offset";
+        }
+        or do
+        {
+            $comp->botched 
+            (
+                compare => "SNP $snp_window .. $offset: $@", 
+                $wc0, $wc1
+            );
+        }
+    }
+}
+
+done_testing;
+
+# this is not a module
+
+0
+
+__END__

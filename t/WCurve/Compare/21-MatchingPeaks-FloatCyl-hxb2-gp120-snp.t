@@ -1,0 +1,1 @@
+generic-21-hxb2-gp120-snp-compare_t

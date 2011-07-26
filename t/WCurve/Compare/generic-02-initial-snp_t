@@ -1,0 +1,107 @@
+########################################################################
+# housekeeping
+########################################################################
+
+use v5.10;
+use strict;
+use FindBin::libs;
+
+use Test::More;
+use Test::Deep;
+
+use File::Basename;
+
+use List::Util  qw( sum );
+
+use WCurve;
+use WCurve::Values;
+
+use WCurve::Test::Cmdline;
+use WCurve::Test::RandomDNA           qw( generate_seq munge_seq );
+
+########################################################################
+# package variables
+########################################################################
+
+my %cmdline = test_opts;
+
+my ( $verbose, $passes, $size ) 
+= @cmdline{ qw( verbose passes base_size ) };
+
+my ( $comp_type, $frag_type )   
+= @cmdline{ qw( comp_type frag_type ) };
+
+my $base_seq    = generate_seq uniform_random => $size;
+
+my $final       = [ 0, ( $size ) x 4 ];
+
+########################################################################
+# utility subs
+########################################################################
+
+########################################################################
+# run test
+########################################################################
+
+my $comp
+= WCurve::Compare->new
+(
+    $comp_type,
+    verbose     => $cmdline{ verbose    },
+    debug       => $cmdline{ debug      },
+    payload    => $cmdline{ payload   },
+);
+
+PASS:
+for my $pass ( 1 .. $passes )
+{
+    $0  = "$cmdline{ base } pass $pass";
+    print "\n$0\n";
+
+    my $wc0
+    = WCurve->new( $frag_type => Fixed => $base_seq => [ "Pass $pass" ] );
+
+    my $snp_window  = $wc0->fragment_type->snp_window;
+
+    for my $offset ( 0 .. 2 )
+    {
+        my $alt_seq = $base_seq;
+
+        munge_seq single_snp => $alt_seq, $offset;
+
+        my $wc1
+        = $wc0->new( Munged => $alt_seq => [ "SNP at +$offset" ] );
+
+        eval
+        {
+            my @chunkz
+            = $comp->compare( $wc0, $wc1 )
+            or die "No alignment\n";
+
+            3 == @chunkz
+            or die "Mismatched chunk count\n";
+
+            $chunkz[1][0]
+            or die "Zero diff in chunk1\n";
+
+            cmp_deeply $final, $chunkz[-1], 
+            or die "Mismatched tail chunk\n";
+        };
+
+        given( $@ )
+        {
+            when( '' ) { pass "SNP at $offset" }
+
+            $comp->debug( 1 );
+            $comp->botched( compare => $@, $wc0, $wc1 );
+        }
+    }
+}
+
+done_testing;
+
+# this is not a module
+
+0
+
+__DATA__

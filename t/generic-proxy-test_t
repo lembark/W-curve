@@ -1,0 +1,68 @@
+########################################################################
+# housekeeping
+########################################################################
+package Testify;
+
+use v5.10;
+use strict;
+use FindBin::libs;
+
+use Test::More;
+
+use File::Basename  qw( basename );
+use List::Util      qw( first );
+use Symbol          qw( qualify_to_ref );
+
+########################################################################
+# package variables
+########################################################################
+
+my $madness = basename $0, '.t';
+
+$madness    =~ s{^ \d+ [-] }{}x;
+$madness    =~ s{ \W+ }{::}gx;
+
+########################################################################
+# run the tests
+########################################################################
+
+if( use_ok $madness )
+{
+    ok $madness->can( 'import' ),  "$madness has 'import'";
+    ok $madness->can( 'exports' ), "$madness has 'exports'";
+
+    my $source
+    = do
+    {
+        my $symtab  = \%::;
+
+        for( split /::/, $madness )
+        {
+            my $name    = $_ . '::';
+
+            $symtab = \%{ $symtab->{ $name } };
+
+            ok %$symtab, "$name has contents";
+        }
+
+        $symtab
+    };
+
+    my $dest
+    = do
+    {
+        my $symtab  = \%::;
+
+        \%{ $symtab->{ 'Testify::' } }
+    };
+
+    for my $export ( $madness->exports ) 
+    {
+        ok exists $source->{ $export }, "'$export' exists in $madness";
+        ok exists $dest  ->{ $export }, "'$export' exists in Testify";
+    }
+}
+
+done_testing;
+
+__END__

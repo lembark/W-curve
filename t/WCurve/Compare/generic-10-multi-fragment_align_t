@@ -1,0 +1,153 @@
+#!/opt/bin/perl
+########################################################################
+# housekeeping
+########################################################################
+
+use v5.10;
+use strict;
+use FindBin::libs;
+
+use File::Basename;
+use WCurve::Test::RandomDNA;
+use Test::More;
+use Parallel::Queue;
+use Symbol;
+
+use List::Util  qw( first min );
+
+use WCurve::Compare;
+use WCurve::Fragment;
+use WCurve::Values;
+use WCurve::Util::DumperConfig;
+
+use WCurve::Test::Cmdline [], [ alt_size => 40 ];
+
+########################################################################
+# package variables
+########################################################################
+
+$\  = "\n";
+$,  = "\n";
+
+my %cmdline = test_opts;
+
+my ( $base, $comp_type, $frag_type )
+= @cmdline{ qw( base comp_type frag_type ) };
+
+my ( $passes, $verbose, $debug )
+= @cmdline{ qw( passes verbose debug ) };
+
+my ( $snp_count, $base_size, $alt_size, )
+= @cmdline{ qw( snp base_size alt_size ) };
+
+my $comp
+= WCurve::Compare->new
+(
+    $comp_type,
+    verbose     => $cmdline{ verbose    },
+    debug       => $cmdline{ debug      },
+    payload    => $cmdline{ payload   },
+);
+
+my $max_offset  = $base_size - 4 * ( $alt_size + 4 ) - 16;
+
+my $base_seq    = '';
+my $alt_seq     = '';
+
+########################################################################
+# utility subs
+########################################################################
+
+########################################################################
+# run tests
+########################################################################
+
+for my $pass ( 1 .. $passes )
+{
+    $0  = "$base pass $pass";
+    print "\n$0\n";
+
+    $base_seq   = generate_seq uniform_random => $base_size;
+
+    my $frag0
+    = WCurve::Fragment->new( $frag_type => $base_seq, 'Single' );
+
+    # align $frag1 without resetting $frag1 to the head.
+    # validates that the composite framework for aligning
+    # works.
+
+    GROUP:
+    for my $offset ( 0 .. $max_offset )
+    {
+        my $prior   = 0;
+
+        my @seq_defz
+        = map
+        {
+            my $i       = $offset + $prior;
+            $alt_seq    = substr $base_seq, $i, $alt_size;
+
+            $i == index $base_seq, $alt_seq
+            or next PASS;
+
+            my $start   = $i + 1;
+            my $stop    = $i + $alt_size;
+
+            $prior      += $alt_size + 4;
+
+            [ $alt_seq, $start, $stop ]
+        }
+        ( 0 .. 3 );
+
+        # at this point seq_defz includes the sub-sequences
+        # along with start and stop base numbers (i.e., in
+        # base numbers not offsets).
+
+        for my $seq ( @seq_defz )
+        {
+            my ( $alt_seq, $start, $stop ) = @$seq;
+
+            my $frag1   
+            = $frag0->new( $alt_seq, "Frag1: $start .. $stop" );
+
+            my ( $diff, @nodz )
+            = $comp->align_fragments( composite => $frag0, $frag1 )
+            or do
+            {
+                $comp->botched
+                (
+                    align_fragments => 'No alignment found',
+
+                    composite => $frag0, $frag1 
+                );
+
+                next GROUP
+            };
+
+            my $found   = $nodz[0][3] - $nodz[1][3];
+            my $expect  = $start - 1;
+
+            if( $found != $expect )
+            {
+                $comp->botched
+                (
+                    align_fragments => "Mismatched alignment: $found ($expect)",
+
+                    composite => $frag0, $frag1 
+                );
+            }
+            else
+            {
+                pass "Offset: $found ($frag1)";
+            }
+        }
+    }
+}
+
+done_testing;
+
+# this is not a module
+
+0
+
+__END__

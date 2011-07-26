@@ -1,0 +1,117 @@
+########################################################################
+# housekeeping
+########################################################################
+
+use v5.10;
+use strict;
+use FindBin::libs;
+
+use Test::More;
+use Test::Deep;
+
+use File::Basename;
+
+use List::Util  qw( sum );
+
+use WCurve;
+use WCurve::Values;
+use WCurve::Test::RandomDNA           qw( generate_seq munge_seq );
+use WCurve::Util::DumperConfig;
+
+use WCurve::Test::Cmdline;
+
+########################################################################
+# package variables
+########################################################################
+
+my %cmdline = test_opts;
+
+my ( $verbose, $passes, $base_size ) 
+= @cmdline{ qw( verbose passes base_size ) };
+
+my ( $comp_type, $frag_type )   
+= @cmdline{ qw( comp_type frag_type ) };
+
+my $base_seq    = generate_seq uniform_random => $base_size;
+
+my $first       = [ 0, ( 1          ) x 4 ];        
+my $final       = [ 0, ( $base_size ) x 4 ];
+
+########################################################################
+# utility subs
+########################################################################
+
+########################################################################
+# run test
+########################################################################
+
+my $comp    = WCurve::Compare->new( $comp_type => $verbose );
+
+for my $pass ( 1 .. $passes )
+{
+    $0  = "$cmdline{ base } pass $pass";
+    print "\n$0\n";
+
+    my $base_curve  = WCurve->new( $frag_type => Fixed => $base_seq );
+
+    my $snp_window  = $base_curve->fragment_type->snp_window;
+
+    my $max_offset  = $base_size - $snp_window - 1;
+
+    OFFSET:
+    for my $offset ( $snp_window .. $max_offset )
+    {
+$DB::single =1 if $offset > 92;
+        my $alt_seq = $base_seq;
+
+        munge_seq single_snp => $alt_seq, $offset;
+
+        my $alt_curve   = WCurve->new( $frag_type => "SNP at $offset" => $alt_seq );
+
+        my $chunkz
+        = $comp->compare( $base_curve, $alt_curve );
+
+        my $sum = 0;
+
+        for( @$chunkz )
+        {
+            $_->[1] == $_->[2]
+            or do
+            {
+                $comp->botched
+                (
+                    compare => "Found gap: $offset",
+                    $base_curve, $alt_curve
+                );
+
+                next OFFSET
+            };
+
+            $sum += $_->[0];
+        }
+
+        $sum > 0
+        or do 
+        {
+            $comp->botched
+            (
+                compare => "No differences: $offset",
+                $base_curve, $alt_curve
+            );
+
+            next OFFSET
+        };
+
+        my $count   = @$chunkz;
+
+        pass "Found SNP at $offset, $count chunks, no gaps";
+    }
+}
+
+done_testing;
+
+# this is not a module
+
+0
+
+__DATA__

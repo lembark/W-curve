@@ -1,4 +1,13 @@
 ?
 !t
 *~
-_*
+var
+*.tar.gz
+*.pdf
+nytprof*
+*.out
+*.out.gz
+*.out.bz2
+hak
+tmp
+scratch

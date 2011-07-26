@@ -1,0 +1,46 @@
+
+use v5.10;
+use strict;
+use FindBin::libs;
+
+use File::Basename;
+use Symbol;
+use Test::More;
+
+my $parent  = 'WCurve::Fragment';
+
+my $madness
+= do
+{
+    my $base = fileparse $0, '.t';
+
+    $base   =~ s{^ \d+ - }{}x;
+
+    $base
+};
+
+my $pkg = qualify $madness, $parent;
+
+use_ok $pkg;
+
+ok $pkg->can( $_ ), "Package can '$_'"
+for qw
+(
+    generate
+    add_skip_chain
+    distance
+    diverge
+    converge_limit
+);
+
+my $name    = "$madness object";
+
+my $frag    = $parent->new( $madness => 'tagc', $name  );
+
+ok $frag,                   "$frag is true";
+ok ! ( $frag <=> $frag ),   "$frag equals itself";
+ok $frag eq $name,          "Name is '$frag' ($name)";
+
+done_testing;
+
+__END__

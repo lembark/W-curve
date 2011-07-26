@@ -1,0 +1,429 @@
+#!/opt/bin/perl
+########################################################################
+# housekeeping
+########################################################################
+
+use v5.14;
+use FindBin::libs;
+
+use AminoAcid;
+
+use Digest::MD5 qw( md5_hex     );
+use List::Util  qw( first max   );
+use Storable    qw( dclone      );
+
+use Getopt::Long;
+use Pod::Usage;
+
+########################################################################
+# package variables
+########################################################################
+
+my %cmdline
+= do
+{
+    my @optz
+    = qw
+    (
+        resist=i
+        sample=i
+        percent=i
+
+        wild!
+        verbose!
+        help!
+    );
+
+    my %argz    = ();
+
+    my %defz
+    = qw
+    (
+        wild    1
+    );
+
+    if( GetOptions \%argz, @optz )
+    {
+        if( $argz{ help } )
+        {
+            pod2usage exitval => 1, verbose => $argz{ verbose }
+        }
+    }
+    else
+    {
+        pod2usage exitval => -1;
+    }
+
+    $argz{ $_ } //= $defz{ $_ } 
+    for keys %defz;
+
+    %argz
+};
+
+my $resist  = $cmdline{ resist };
+my $sample  = $cmdline{ sample };
+my $percent = $cmdline{ percent } || 50;
+
+my $width   = map { length } ( $sample, $resist );
+my $zero    = '0' x $width;
+my $format  = "%0${width}d";
+
+my @wild
+= do
+{
+    local $/    = '';
+
+    my $p   = <DATA>;
+    $p      =~ s/\W+//g;
+
+    split '', $p
+};
+
+my $subz
+= do
+{
+    local $/    = "\n";
+
+    [
+        map
+        {
+            my ( $position, @altz ) = split;
+
+            [ --$position, \@altz ]
+        }
+        <DATA>
+    ]
+};
+
+########################################################################
+# utility subs
+########################################################################
+
+sub print_fasta
+{
+    my ( $name, $aa_seq ) = @_;
+
+    local $\    = "\n";
+
+    print STDERR "$name";
+
+    my $seq = aa2dna @$aa_seq;
+
+    $\  = "\n";
+
+    print ">$name";
+
+    print substr $seq, 0, 60, ''
+    while $seq;
+
+    return
+}
+
+########################################################################
+# step one: generate the wild, drug-resistent strains.
+########################################################################
+
+# drug-resistent baseline
+
+if( $cmdline{ wild } )
+{
+    print_fasta wild => \@wild;
+}
+
+if( $resist )
+{
+    my @known   = ();
+
+    my $end     = sprintf $format, $resist;
+
+    for my $i ( $zero .. $end )
+    {
+        for my $aa_seq ( [ @wild ] )
+        {
+            for( @$subz )
+            {
+                my ( $offset, $altz ) = @$_;
+
+                $aa_seq->[ $offset ] 
+                = $#$altz
+                ? $altz->[ rand @$altz ]
+                : $altz->[0]
+                ;
+            }
+
+            my $sum = md5_hex $aa_seq;
+
+            first { $_ eq $sum } @known 
+            and redo;
+
+            push @known, $sum;
+
+            print_fasta "_dr_$i" => $aa_seq;
+        }
+    }
+}
+ 
+if( $sample )
+{
+    my $end = sprintf $format, $sample;
+
+    for my $aa_seq ( [ @wild ] )
+    {
+        my $cutoff  = rand 100;
+
+        for my $i ( $zero .. $end )
+        {
+            for( @$subz )
+            {
+                $percent > rand 100
+                or next;
+
+                my ( $offset, $altz ) = @$_;
+
+                $aa_seq->[ $offset ] 
+                = $#$altz
+                ? $altz->[ rand @$altz ]
+                : $altz->[0]
+                ;
+            }
+
+            print_fasta "sample-$i" => $aa_seq;
+        }
+    }
+}
+
+=head1 NAME
+
+pol-aa-seq-generator -- generate wild, drug-resistent, and 
+patient pol sequences using table of drug restistent AA.
+
+=head1 SYNOPSIS
+
+    # generate a fasta file with the wild type, 
+    # 8 drug-resistant sequences, 32 samples with
+    # varying drug resistance.
+
+    pol-dr-seq-generator --resist=8 --sample=32 > foo.fasta;
+    pol-dr-seq-generator -r 8 -s 32 > foo.fasta;
+
+    # leave out the wild type reference, 
+
+    pol-dr-seq-generator --nowild -r 8 -s 32 > foo.fasta;
+
+    # only generate the drug-resistant sequences
+
+    pol-dr-seq-generator --nowild -r 8 > foo.fasta;
+
+    # only generate the sample sequences 
+
+    pol-dr-seq-generator --nowild -s 32 > foo.fasta;
+
+    # perform substitutions on sample sequence
+    # 75% of the time (vs. 50% default). 
+    # -p 100 replaces all bases (acts like --resist),
+    # -p 0 produces only wild sequences (P(replace) == 0).
+
+    pol-dr-seq-generator --percent=75 -s 32 > foo.fasta;
+    pol-dr-seq-generator -p 75 -s 32 > foo.fasta;
+
+
+=head1 DESCRIPTION
+
+This performs substitutions on the HIV-1 HXB2 
+POL amnio acid ("AA") sequence. The substitutions
+are derived from the Stanford HIV RT and Protease
+Sequence Database
+
+    http://hivdb.stanford.edu/pages/genotype-rx.html
+
+which provides a list of alternate substitutions 
+found in drug-resistant HIV-1 strains. 
+
+The code starts with a wild AA sequence, copies
+it, and inserts alternates from the drug resistant
+list into the sequence. For the drug-resistant 
+sequences the probability of replacement is 100%
+and the substitutions are chosen randomly from the
+list of alternates; samples have replacements
+performed randomly with a default of 0.50 (50%).
+
+=cut
+
+__DATA__
+pispietvpvklkpgmdgpkvkqwplteekikalveictemekegkiski
+gpenpyntpvfaikkkdstkwrklvdfrelnkrtqdfwevqlgiphpagl
+kkkksvtvldvgdayfsvpldkdfrkytaftipsinnetpgiryqynvlp
+qgwkgspaifqssmtkilepfrkqnpdiviyqymddlyvgsdleigqhrt
+kieelrqhllrwgfttpdkkhqkeppflwmgyelhpdkwtvqpivlpekd
+swtvndiqklvgklnwasqiyagikvkqlckllrgtkalteviplteeae
+lelaenreilkepvhgvyydpskdliaeiqkqgqgqwtyqiyqepfknlk
+tgkyarmrgahtndvkqlteavqkiatesiviwgktpkfklpiqketwea
+wwteywqatwipewefvntpplvklwyqlekepivgaetfyvdgaanret
+klgkagyvtdrgrqkvvsltdttnqktelqaihlalqdsglevnivtdsq
+yalgiiqaqpdkseselvsqiieqlikkekvylawvpahkgiggneqvdk
+lvsagirkvl
+
+6       D
+11      R
+20      K
+21      I
+35      I T L M
+36      N
+37      F
+39      A
+41      L
+48      T
+49      R
+50      V
+60      I
+64      R
+68      G
+83      K
+86      E
+90      I
+98      S
+102     Q R
+103     R N
+104     R
+106     I
+118     I
+121     H Y
+122     E P Q
+123     E N S
+135     T V L R
+138     A
+142     V T
+158     S
+162     C A Y
+165     I
+166     R
+169     D
+173     E R
+174     K E H R
+177     E
+178     M L V
+179     I D
+184     V
+196     E
+197     K E
+200     A I E
+202     V
+204     K D
+207     E A K H D
+211     K G Q S
+214     L
+244     V
+245     M E K Q T I
+248     D
+250     E
+272     P S T
+275     R Q
+276     I
+277     R
+278     E H
+281     R
+283     I
+284     K
+286     A P
+288     S T
+291     D
+292     I
+293     V
+294     T Q S A
+296     S
+297     K A R V T Q
+300     I
+311     R
+312     K T N
+317     A
+322     T A
+324     E
+326     V
+327     V
+328     D
+329     L V
+333     E
+334     L E H N Y D
+335     D
+338     S
+342     F
+345     Q
+346     Y
+355     G
+356     K
+357     T K V I R
+358     K
+359     S
+360     T
+365     I
+366     R
+369     A V
+370     D
+371     V
+375     V
+376     T S V
+377     Q M L I K
+379     G C
+381     I
+385     R
+386     I V A
+390     R
+395     R
+396     D
+399     D
+400     T S I L
+403     M I A S L V
+404     D
+405     H
+411     V
+416     Y
+417     I
+431     T R
+432     D
+435     I A E L T
+436     E
+437     V
+440     Y
+446     S
+447     S
+499     D
+451     R
+452     I S V
+454     R
+460     N S
+461     K
+463     K
+466     A I
+467     I
+468     P T
+469     I
+470     A N P S
+471     E
+476     Q
+477     A
+480     H E
+482     V
+483     Y Q N L
+490     E
+491     S V A P
+502     V
+503     I
+507     H
+509     K
+512     R Q T I
+517     I V
+519     N
+520     K
+524     E
+526     V
+527     N Q R
+529     D
+530     R
+531     I
+534     S T
+547     K
+548     I
+554     T S N
+556     V
+558     R
+559     I

@@ -1,0 +1,181 @@
+########################################################################
+# housekeeping
+########################################################################
+
+package Testify;
+
+use v5.10;
+use strict;
+use FindBin::libs;
+use vars qw( %cornerz );
+
+use File::Basename;
+use Test::More;
+use Test::Deep;
+
+use WCurve::Util::DumperConfig;
+use WCurve::Test::RandomDNA       qw( munge_seq );
+
+use WCurve;
+use WCurve::Compare;
+
+my $passes  = $ENV{ PASSES  } || 1;
+my $size    = $ENV{ SIZE    } // 40;
+my $snps    = $ENV{ SNPS    } || 32;
+my $gaps    = $ENV{ GAPS    };
+
+########################################################################
+# package variables
+########################################################################
+
+my $base        = basename $0;
+
+my ( $comp_type, $frag_type ) = $base =~ m{ \d+ \W+ (\w+) - (\w+) }x;
+
+my $comp    = WCurve::Compare->new( $comp_type );
+
+$comp->verbose( $ENV{ VERBOSE } )
+if $ENV{ VERBOSE };
+
+my $regionz 
+= WCurve->new( $frag_type => 'HXB2 gp120' )->read_seq( *DATA{IO} );
+
+$gaps   //= int ( $regionz->count / 2 );
+
+my $base_seq
+= do 
+{
+    my $fh  = *DATA{IO};
+
+    seek $fh, 0, 0;
+
+    local $/;
+
+    my $input   = <$fh>;
+
+    my ( $seq ) = $input =~ m{ %HIVHXB2CG .+? C5 [\s\d]+? ; (.+) }xs;
+
+    $seq =~ s{ \W+ }{}gx;
+
+    lc $seq
+};
+
+plan tests => $passes * $regionz->count;
+
+for my $pass ( 1 .. $passes )
+{
+    print "\nPass: $pass ($base)\n";
+
+    my $alt_seq = $base_seq;
+
+    munge_seq random_snp => $alt_seq, $snps;
+
+    my @snpz    = $alt_seq =~ m{ ([CATG]+) }xg;
+
+    print join "\n\t", "SNPs: @snpz\n";
+
+    munge_seq random_gap => $alt_seq, $gaps, $size;
+
+    my @gapz    = $alt_seq =~ m{ ([CATG]{2,}) }xg;
+
+    print join "\n\t", "Gaps: @gapz\n";
+
+    my ( $frag0 ) = $regionz->new( HXB2 => $alt_seq )->fragments;
+
+    my $prior   = 0;
+
+    for my $frag1 ( $regionz->fragments )
+    {
+        if( $frag1->filler )
+        {
+            my $length  = $frag1->size;
+
+            $frag0->[0] += $length;
+            $prior      += $length;
+
+            pass "Filler:  $frag1";
+        }
+        else
+        {
+            my @chunkz
+            = $comp->compare_fragments
+            (
+                composite => $frag0, $frag1
+            );
+
+            unless( @chunkz )
+            {
+                state $v    = $comp->verbose_offset;
+                state $d    = $comp->debug_offset;
+
+                fail "Botched: $frag1";
+
+                local $comp->[$v] = 2;
+                local $comp->[$d] = 1;
+
+                $comp->compare_fragments
+                (
+                    composite => $frag0, $frag1
+                );
+
+                next
+            }
+
+            # validate the fragment
+
+            my $expect  = $chunkz[-1][2] - $chunkz[0][4];
+            my $found   = $chunkz[-1][1] - $chunkz[0][3];
+
+            ok $found >= $expect,   "Run length: $found ($expect)";
+
+            # move the node up the single-fragment curve.
+
+            my $after
+            = @chunkz
+            ? $chunkz[-1][1]
+            : $prior + int $frag1
+            ;
+
+            $frag0->[0] += $after - $prior;
+
+            $prior      = $after;
+        }
+    }
+}
+
+done_testing;
+
+0
+
+__DATA__
+%HIVHXB2CG Human immunodeficiency virus type 1 (HXB2), complete genome, HIV1/HTLV-III/LAV reference genome.
+C1      1       301     ;
+V1     302     379    ;
+V2      380     495    ;
+C2      496     796     ;
+V3      797     900    ;
+C3      901     1063    ;
+V4      1064    1161   ;
+C4      1162    1287    ;
+V5      1288    1317   ;
+C5      1318    1395    ;
+ACAGAAAAATTGTGGGTCACAGTCTATTATGGGGTACCTGTGTGGAAGGAAGCAACCACCACTCTATTTTGTGCATCAGA
+TGCTAAAGCATATGATACAGAGGTACATAATGTTTGGGCCACACATGCCTGTGTACCCACAGACCCCAACCCACAAGAAG
+TAGTATTGGTAAATGTGACAGAAAATTTTAACATGTGGAAAAATGACATGGTAGAACAGATGCATGAGGATATAATCAGT
+TTATGGGATCAAAGCCTAAAGCCATGTGTAAAATTAACCCCACTCTGTGTTAGTTTAAAGTGCACTGATTTGAAGAATGA
+TACTAATACCAATAGTAGTAGCGGGAGAATGATAATGGAGAAAGGAGAGATAAAAAACTGCTCTTTCAATATCAGCACAA
+GCATAAGAGGTAAGGTGCAGAAAGAATATGCATTTTTTTATAAACTTGATATAATACCAATAGATAATGATACTACCAGC
+TATAAGTTGACAAGTTGTAACACCTCAGTCATTACACAGGCCTGTCCAAAGGTATCCTTTGAGCCAATTCCCATACATTA
+TTGTGCCCCGGCTGGTTTTGCGATTCTAAAATGTAATAATAAGACGTTCAATGGAACAGGACCATGTACAAATGTCAGCA
+CAGTACAATGTACACATGGAATTAGGCCAGTAGTATCAACTCAACTGCTGTTAAATGGCAGTCTAGCAGAAGAAGAGGTA
+GTAATTAGATCTGTCAATTTCACGGACAATGCTAAAACCATAATAGTACAGCTGAACACATCTGTAGAAATTAATTGTAC
+AAGACCCAACAACAATACAAGAAAAAGAATCCGTATCCAGAGAGGACCAGGGAGAGCATTTGTTACAATAGGAAAAATAG
+GAAATATGAGACAAGCACATTGTAACATTAGTAGAGCAAAATGGAATAACACTTTAAAACAGATAGCTAGCAAATTAAGA
+GAACAATTTGGAAATAATAAAACAATAATCTTTAAGCAATCCTCAGGAGGGGACCCAGAAATTGTAACGCACAGTTTTAA
+TTGTGGAGGGGAATTTTTCTACTGTAATTCAACACAACTGTTTAATAGTACTTGGTTTAATAGTACTTGGAGTACTGAAG
+GGTCAAATAACACTGAAGGAAGTGACACAATCACCCTCCCATGCAGAATAAAACAAATTATAAACATGTGGCAGAAAGTA
+GGAAAAGCAATGTATGCCCCTCCCATCAGTGGACAAATTAGATGTTCATCAAATATTACAGGGCTGCTATTAACAAGAGA
+TGGTGGTAATAGCAACAATGAGTCCGAGATCTTCAGACCTGGAGGAGGAGATATGAGGGACAATTGGAGAAGTGAATTAT
+ATAAATATAAAGTAGTAAAAATTGAACCATTAGGAGTAGCACCCACCAAGGCAAAGAGAAGAGTGGTGCAGAGAGAAAAA
+AGAGCAGTGGGAATAGGAGCTTTGTTCCTTGGGTTCTTGGGAGCAGCAGGAAGCACTATGGGCGCAGCCTCAATGACGCT
+GACGGTACAGGCCAGA

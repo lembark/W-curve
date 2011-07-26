@@ -1,0 +1,1 @@
+generic-20-hxb2-gp120-compare_t

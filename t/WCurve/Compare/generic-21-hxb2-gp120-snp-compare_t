@@ -1,0 +1,136 @@
+########################################################################
+# housekeeping
+########################################################################
+
+package Testify;
+
+use v5.10;
+use strict;
+use FindBin::libs;
+use vars qw( %cornerz );
+
+use File::Basename;
+use Test::More;
+use Test::Deep;
+
+use List::Util  qw( first );
+
+use WCurve::Util::DumperConfig;
+use WCurve::Test::RandomDNA       qw( munge_seq );
+
+use WCurve;
+use WCurve::Compare;
+
+use WCurve::Test::Cmdline;
+
+########################################################################
+# package variables
+########################################################################
+
+my %cmdline = test_opts;
+
+my ( $base, $comp_type, $frag_type, $base_size )
+= @cmdline{ qw( base comp_type frag_type base_size ) };
+
+my ( $passes, $verbose, $debug )
+= @cmdline{ qw( passes verbose debug ) };
+
+my ( $snp_count )
+= @cmdline{ qw( snp ) };
+
+my $comp
+= WCurve::Compare->new
+(
+    $comp_type,
+    verbose     => $cmdline{ verbose    },
+    debug       => $cmdline{ debug      },
+    payload     => $cmdline{ payload    },
+);
+
+my $template 
+= WCurve->new( $frag_type => 'HXB2 gp120' )->read_seq( *DATA{IO} );
+
+my $base_seq    = $template->sequence;
+
+$snp_count  //= int( ( length $base_seq ) / 16 );
+
+my $botched = '';
+$"          = ' ';
+
+########################################################################
+# run the tests
+########################################################################
+
+for my $pass ( 1 .. $passes )
+{
+    $0  = "$base --snp $snp_count (pass $pass)";
+    print "\n$0\n";
+
+    my $alt_seq = $base_seq;
+
+    munge_seq random_snp => $alt_seq, $snp_count;
+
+    my $name    = "SNP x $snp_count";
+    my $wc0     = $template->new( $name => $alt_seq );
+
+    eval
+    {
+        my @resultz
+        = $comp->compare( $wc0, $template )
+        or die "Failed initial alignment\n";
+
+        for my $frag ( $template->fragments )
+        {
+            my $chunkz  = shift @resultz
+            or next;
+
+            @$chunkz
+            or die "$name $frag: empty chunkz\n";
+
+            first { $_->[1] != $_->[2] } @$chunkz[1..$#$chunkz]
+            and die "$frag\n";
+        }
+
+        pass "$name $pass";
+
+        1
+    }
+    or $comp->botched( compare => $@, $wc0, $template );
+}
+
+done_testing;
+
+0
+
+__DATA__
+%HIVHXB2CG Human immunodeficiency virus type 1 (HXB2), complete genome, HIV1/HTLV-III/LAV reference genome.
+C1     1     301    ;
+V1   302     379    ;
+V2   380     495    ;
+C2   496     796    ;
+V3   797     900    ;
+C3   901    1063    ;
+V4  1064    1161    ;
+C4  1162    1287    ;
+V5  1288    1317    ;
+C5  1318    1395    ;
+ACAGAAAAATTGTGGGTCACAGTCTATTATGGGGTACCTGTGTGGAAGGAAGCAACCACCACTCTATTTTGTGCATCAGA
+TGCTAAAGCATATGATACAGAGGTACATAATGTTTGGGCCACACATGCCTGTGTACCCACAGACCCCAACCCACAAGAAG
+TAGTATTGGTAAATGTGACAGAAAATTTTAACATGTGGAAAAATGACATGGTAGAACAGATGCATGAGGATATAATCAGT
+TTATGGGATCAAAGCCTAAAGCCATGTGTAAAATTAACCCCACTCTGTGTTAGTTTAAAGTGCACTGATTTGAAGAATGA
+TACTAATACCAATAGTAGTAGCGGGAGAATGATAATGGAGAAAGGAGAGATAAAAAACTGCTCTTTCAATATCAGCACAA
+GCATAAGAGGTAAGGTGCAGAAAGAATATGCATTTTTTTATAAACTTGATATAATACCAATAGATAATGATACTACCAGC
+TATAAGTTGACAAGTTGTAACACCTCAGTCATTACACAGGCCTGTCCAAAGGTATCCTTTGAGCCAATTCCCATACATTA
+TTGTGCCCCGGCTGGTTTTGCGATTCTAAAATGTAATAATAAGACGTTCAATGGAACAGGACCATGTACAAATGTCAGCA
+CAGTACAATGTACACATGGAATTAGGCCAGTAGTATCAACTCAACTGCTGTTAAATGGCAGTCTAGCAGAAGAAGAGGTA
+GTAATTAGATCTGTCAATTTCACGGACAATGCTAAAACCATAATAGTACAGCTGAACACATCTGTAGAAATTAATTGTAC
+AAGACCCAACAACAATACAAGAAAAAGAATCCGTATCCAGAGAGGACCAGGGAGAGCATTTGTTACAATAGGAAAAATAG
+GAAATATGAGACAAGCACATTGTAACATTAGTAGAGCAAAATGGAATAACACTTTAAAACAGATAGCTAGCAAATTAAGA
+GAACAATTTGGAAATAATAAAACAATAATCTTTAAGCAATCCTCAGGAGGGGACCCAGAAATTGTAACGCACAGTTTTAA
+TTGTGGAGGGGAATTTTTCTACTGTAATTCAACACAACTGTTTAATAGTACTTGGTTTAATAGTACTTGGAGTACTGAAG
+GGTCAAATAACACTGAAGGAAGTGACACAATCACCCTCCCATGCAGAATAAAACAAATTATAAACATGTGGCAGAAAGTA
+GGAAAAGCAATGTATGCCCCTCCCATCAGTGGACAAATTAGATGTTCATCAAATATTACAGGGCTGCTATTAACAAGAGA
+TGGTGGTAATAGCAACAATGAGTCCGAGATCTTCAGACCTGGAGGAGGAGATATGAGGGACAATTGGAGAAGTGAATTAT
+ATAAATATAAAGTAGTAAAAATTGAACCATTAGGAGTAGCACCCACCAAGGCAAAGAGAAGAGTGGTGCAGAGAGAAAAA
+AGAGCAGTGGGAATAGGAGCTTTGTTCCTTGGGTTCTTGGGAGCAGCAGGAAGCACTATGGGCGCAGCCTCAATGACGCT
+GACGGTACAGGCCAGA

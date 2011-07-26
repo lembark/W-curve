@@ -1,0 +1,300 @@
+########################################################################
+# housekeeping
+########################################################################
+
+package Testify;
+
+use v5.10;
+use strict;
+use FindBin::libs;
+use vars qw( %cornerz );
+
+use File::Basename;
+use Test::More;
+use Test::Deep;
+
+use Benchmark       qw( :hireswallclock );
+use WCurve::Test::RandomDNA       qw( munge_seq );
+
+use WCurve;
+use WCurve::Compare;
+use WCurve::Util::DumperConfig;
+
+my $passes  = $ENV{ PASSES  } || 1;
+my $size    = $ENV{ SIZE    } // 40;
+my $snps    = $ENV{ SNPS    };
+my $gaps    = $ENV{ GAPS    };
+
+########################################################################
+# package variables
+########################################################################
+
+my $base        = basename $0;
+
+my ( $comp_type, $frag_type ) = $base =~ m{ \d+ \W+ (\w+) - (\w+) }x;
+
+my $comp    = WCurve::Compare->new( $comp_type );
+
+$comp->verbose( $ENV{ VERBOSE } )
+if $ENV{ VERBOSE };
+
+my $regionz 
+= WCurve->new( $frag_type => 'HXB2 gp120' )->read_seq( *DATA{IO} );
+
+my @fragz   = $regionz->fragments;
+
+my $count   = @fragz;
+
+$gaps       //= int ( $regionz->count / 2 );
+
+my $snp_window  = $comp->payload->{ snp_window };
+
+my $base_seq
+= do 
+{
+    my $fh  = *DATA{IO};
+
+    seek $fh, 0, 0;
+
+    local $/;
+
+    my $input   = <$fh>;
+
+    my ( $seq ) = $input =~ m{ %HIVHXB2CG .+? C5 [\s\d]+? ; (.+) }xs;
+
+    $seq =~ s{ \W+ }{}gx;
+
+    $seq = lc $seq;
+
+    print "\nBase sequence:\n";
+
+    for( my $print = $seq ; $print ; )
+    {
+        local $\    = "\n";
+        
+        print ( substr $print, 0, 80, '' );
+    }
+
+    $seq
+};
+
+$snps       ||= int ( ( length $base_seq ) / 8 );
+
+my $alt_seq = '';
+my $munged  = '';
+
+my $t0      = 0;
+my $t1      = 0;
+my $t2      = 0;
+
+########################################################################
+# utility subs
+########################################################################
+
+########################################################################
+# run the tests 
+########################################################################
+
+PASS:
+for my $pass ( 1 .. $passes )
+{
+    print "\nPass: $pass ($base)\n";
+
+    $alt_seq
+    = do
+    {
+        local $RandomDNA::Munge::verbose    = 1;
+
+        my $seq = $base_seq;
+
+        munge_seq random_snp => $seq, $snps;
+        munge_seq random_gap => $seq, $gaps, $size;
+
+        $seq
+    };
+
+    $t0         = Benchmark->new;
+
+    $munged     = $regionz->new( Munged => $alt_seq );
+
+    $t1         = Benchmark->new;
+
+    my @resultz = $comp->compare( $munged, $regionz );
+
+    $t2         = Benchmark->new;
+
+    unless( @resultz )
+    {
+        $comp->botched
+        ( 
+            compare => 'Empty results',
+            $regionz, $munged,
+        );
+
+        next PASS
+    };
+
+    given( @resultz <=> $regionz )
+    {
+        my $found   = @resultz;
+
+        when(  0 )
+        {
+            pass "Count: $found ($count)";
+        }
+
+        when( -1 )
+        {
+            # runt results: exhausted the single
+            # sequence curve before running out
+            # of the multiple fragments.
+
+            $comp->botched
+            (
+                compare => "Exhausted $munged",
+                $regionz, $munged,
+            );
+
+            next PASS
+        }
+
+        when( 1 )
+        {
+            # this is really, really wierd:
+            # there should be no way to get
+            # extra chunks.
+
+            $comp->botched
+            (
+                compare => "Extraneous resultz, $found > $count",
+                $regionz, $munged,
+            );
+
+            next PASS
+        }
+    }
+
+    FRAG:
+    for my $i ( 0 .. $#fragz )
+    {
+        my $frag    = $fragz[$i];
+        my $chunkz  = $resultz[$i];
+        my $filler  = $frag->filler;
+        my $empty   = ! $chunkz;
+
+        if( $empty eq $filler )
+        {
+            pass $filler
+            ? "$frag: filler"
+            : "$frag: active"
+        }
+        else
+        {
+            $comp->botched
+            (
+                compare => "Mismatched $frag, $empty ($filler)",
+                $regionz, $munged,
+            );
+
+            next PASS
+        }
+
+        $chunkz or next;
+
+        @$chunkz
+        or do
+        {
+            local $Data::Dumper::Maxdepth   = 4;
+
+            $comp->botched
+            (
+                compare => "Unalingned $frag",
+                $regionz, $munged,
+            );
+
+            next PASS
+        };
+
+        # frag0 has the gaps on it, therefore 
+        # frag0 should have the longer run. they 
+        # might be equal, but $s0 should not be 
+        # shorter than $s1.
+
+        my $a   = $chunkz->[ 0][3];
+        my $b   = $chunkz->[ 0][4];
+        my $c   = $chunkz->[-1][1];
+        my $d   = $chunkz->[-1][2];
+
+        my $s0  = $c - $a;
+        my $s1  = $d - $b - $snp_window;
+
+        given( $s0 <=> $s1 )
+        {
+            when( -1 )
+            {
+                $comp->botched
+                (
+                    compare => "Misaligned $frag, $s0 < $s1 ([ $a .. $c ] : [ $b : $d ])",
+                    $regionz, $munged,
+                );
+
+                next PASS
+            }
+
+            default
+            {
+                pass "Aligned $frag: $s0 >= $s1 ([ $a .. $c ] : [ $b : $d ])";
+            }
+        }
+    }
+}
+continue
+{
+    my $new_time    = timestr timediff $t1, $t0;
+    my $cmp_time    = timestr timediff $t2, $t1;
+
+    local $\    = "\n";
+    local $,    = "\n";
+
+    print
+    'Benchmark:',
+    "Construct: $new_time",
+    "Compare:   $cmp_time";
+}
+
+done_testing;
+
+0
+
+__DATA__
+%HIVHXB2CG Human immunodeficiency virus type 1 (HXB2), complete genome, HIV1/HTLV-III/LAV reference genome.
+C1      1       301     ;
++V1     302     379    ;
++V2      380     495    ;
+C2      496     796     ;
++V3      797     900    ;
+C3      901     1063    ;
++V4      1064    1161   ;
+C4      1162    1287    ;
++V5      1288    1317   ;
+C5      1318    1395    ;
+ACAGAAAAATTGTGGGTCACAGTCTATTATGGGGTACCTGTGTGGAAGGAAGCAACCACCACTCTATTTTGTGCATCAGA
+TGCTAAAGCATATGATACAGAGGTACATAATGTTTGGGCCACACATGCCTGTGTACCCACAGACCCCAACCCACAAGAAG
+TAGTATTGGTAAATGTGACAGAAAATTTTAACATGTGGAAAAATGACATGGTAGAACAGATGCATGAGGATATAATCAGT
+TTATGGGATCAAAGCCTAAAGCCATGTGTAAAATTAACCCCACTCTGTGTTAGTTTAAAGTGCACTGATTTGAAGAATGA
+TACTAATACCAATAGTAGTAGCGGGAGAATGATAATGGAGAAAGGAGAGATAAAAAACTGCTCTTTCAATATCAGCACAA
+GCATAAGAGGTAAGGTGCAGAAAGAATATGCATTTTTTTATAAACTTGATATAATACCAATAGATAATGATACTACCAGC
+TATAAGTTGACAAGTTGTAACACCTCAGTCATTACACAGGCCTGTCCAAAGGTATCCTTTGAGCCAATTCCCATACATTA
+TTGTGCCCCGGCTGGTTTTGCGATTCTAAAATGTAATAATAAGACGTTCAATGGAACAGGACCATGTACAAATGTCAGCA
+CAGTACAATGTACACATGGAATTAGGCCAGTAGTATCAACTCAACTGCTGTTAAATGGCAGTCTAGCAGAAGAAGAGGTA
+GTAATTAGATCTGTCAATTTCACGGACAATGCTAAAACCATAATAGTACAGCTGAACACATCTGTAGAAATTAATTGTAC
+AAGACCCAACAACAATACAAGAAAAAGAATCCGTATCCAGAGAGGACCAGGGAGAGCATTTGTTACAATAGGAAAAATAG
+GAAATATGAGACAAGCACATTGTAACATTAGTAGAGCAAAATGGAATAACACTTTAAAACAGATAGCTAGCAAATTAAGA
+GAACAATTTGGAAATAATAAAACAATAATCTTTAAGCAATCCTCAGGAGGGGACCCAGAAATTGTAACGCACAGTTTTAA
+TTGTGGAGGGGAATTTTTCTACTGTAATTCAACACAACTGTTTAATAGTACTTGGTTTAATAGTACTTGGAGTACTGAAG
+GGTCAAATAACACTGAAGGAAGTGACACAATCACCCTCCCATGCAGAATAAAACAAATTATAAACATGTGGCAGAAAGTA
+GGAAAAGCAATGTATGCCCCTCCCATCAGTGGACAAATTAGATGTTCATCAAATATTACAGGGCTGCTATTAACAAGAGA
+TGGTGGTAATAGCAACAATGAGTCCGAGATCTTCAGACCTGGAGGAGGAGATATGAGGGACAATTGGAGAAGTGAATTAT
+ATAAATATAAAGTAGTAAAAATTGAACCATTAGGAGTAGCACCCACCAAGGCAAAGAGAAGAGTGGTGCAGAGAGAAAAA
+AGAGCAGTGGGAATAGGAGCTTTGTTCCTTGGGTTCTTGGGAGCAGCAGGAAGCACTATGGGCGCAGCCTCAATGACGCT
+GACGGTACAGGCCAGA

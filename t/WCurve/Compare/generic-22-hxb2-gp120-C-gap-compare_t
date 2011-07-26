@@ -1,0 +1,183 @@
+########################################################################
+# housekeeping
+########################################################################
+
+package Testify;
+
+use v5.10;
+use strict;
+use FindBin::libs;
+use vars qw( %cornerz );
+
+use File::Basename;
+use Test::More;
+use Test::Deep;
+
+use WCurve::Util::DumperConfig;
+use WCurve::Test::RandomDNA       qw( munge_seq );
+
+use WCurve;
+use WCurve::Compare;
+
+use WCurve::Test::Cmdline [], [ gap => 16 ];
+
+########################################################################
+# package variables
+########################################################################
+
+my %cmdline = test_opts;
+
+my ( $base, $comp_type, $frag_type )
+= @cmdline{ qw( base comp_type frag_type ) };
+
+my ( $passes, $verbose, $debug )
+= @cmdline{ qw( passes verbose debug ) };
+
+my $comp
+= WCurve::Compare->new
+(
+    $comp_type,
+    verbose     => $cmdline{ verbose    },
+    debug       => $cmdline{ debug      },
+    payload    => $cmdline{ payload   },
+);
+
+my $template 
+= do
+{
+    local $/;
+
+    WCurve->new( $frag_type => 'HXB2 gp120' )->read_seq( <DATA> );
+};
+
+my $snp_window  = $template->fragment_type->snp_window;
+
+my @fragz       = grep { ! $_->filler } $template->fragments;
+
+########################################################################
+# run the tests
+########################################################################
+
+for my $pass ( 1 .. $passes )
+{
+    $0  = "$base pass $pass";
+    print "\n$0\n";
+
+    for my $gap_size ( 0 .. $cmdline{ gap } )
+    {
+        print "\tGap: $gap_size\n";
+
+        FRAG:
+        for my $frag ( @fragz )
+        {
+            my $alt_seq = $template->sequence;
+
+            my $offset
+            = $frag->start
+            + int rand ( $frag->stop - $frag->start - $gap_size - 1 )
+            ;
+
+            print "\t$frag: +$offset\n";
+
+            munge_seq insert_gap => $alt_seq, $offset, $gap_size;
+
+            my $name    = "$gap_size \@ $offset";
+
+            my $wc0
+            = $template->new( $name => $alt_seq );
+
+            eval
+            {
+                my @resultz = $comp->compare( $wc0, $template )
+                or die "No results\n";
+
+                for my $frag ( $template->fragments )
+                {
+                    my $chunkz  = shift @resultz
+                    or next;
+
+                    @$chunkz
+                    or die "No alignment: $frag\n";
+
+                    '+' eq substr $frag, 0, 1
+                    and next;
+
+                    my $z0      = $chunkz->[-1][1];
+                    my $z1      = $chunkz->[-1][2];
+
+                    my $found   = $z0 - $z1;
+
+                    if( $z1 >= $offset )
+                    {
+                        # -1 accounts for issues with the 
+                        # randomly generated gap.
+
+                        $found == $gap_size 
+                        or
+                        $found == $gap_size - 1
+                        or
+                        die "Unmatched gap: $frag [ $z0 : $z1 ] ($offset)\n";
+                    }
+                    else
+                    {
+                        $z0 == $z1
+                        or die "Extraneous gap: $frag $z0 != $z1 ($offset)\n";
+                    }
+                }
+
+                1
+            }
+            or do
+            {
+$DB::single = 1;
+
+                $comp->botched
+                (
+                    compare => "Gap x $gap_size \@ $offset, $@",
+                    $wc0, $template
+                );
+
+                next FRAG
+            };
+        }
+
+        pass "Gap size: $gap_size";
+    }
+}
+
+done_testing;
+
+0
+
+__DATA__
+%HIVHXB2CG Human immunodeficiency virus type 1 (HXB2), complete genome, HIV1/HTLV-III/LAV reference genome.
+C1     1     301    ;
++V1   302     379    ;
++V2   380     495    ;
+C2   496     796    ;
++V3   797     900    ;
+C3   901    1063    ;
++V4  1064    1161    ;
+C4  1162    1287    ;
++V5  1288    1317    ;
+C5  1318    1395    ;
+ACAGAAAAATTGTGGGTCACAGTCTATTATGGGGTACCTGTGTGGAAGGAAGCAACCACCACTCTATTTTGTGCATCAGA
+TGCTAAAGCATATGATACAGAGGTACATAATGTTTGGGCCACACATGCCTGTGTACCCACAGACCCCAACCCACAAGAAG
+TAGTATTGGTAAATGTGACAGAAAATTTTAACATGTGGAAAAATGACATGGTAGAACAGATGCATGAGGATATAATCAGT
+TTATGGGATCAAAGCCTAAAGCCATGTGTAAAATTAACCCCACTCTGTGTTAGTTTAAAGTGCACTGATTTGAAGAATGA
+TACTAATACCAATAGTAGTAGCGGGAGAATGATAATGGAGAAAGGAGAGATAAAAAACTGCTCTTTCAATATCAGCACAA
+GCATAAGAGGTAAGGTGCAGAAAGAATATGCATTTTTTTATAAACTTGATATAATACCAATAGATAATGATACTACCAGC
+TATAAGTTGACAAGTTGTAACACCTCAGTCATTACACAGGCCTGTCCAAAGGTATCCTTTGAGCCAATTCCCATACATTA
+TTGTGCCCCGGCTGGTTTTGCGATTCTAAAATGTAATAATAAGACGTTCAATGGAACAGGACCATGTACAAATGTCAGCA
+CAGTACAATGTACACATGGAATTAGGCCAGTAGTATCAACTCAACTGCTGTTAAATGGCAGTCTAGCAGAAGAAGAGGTA
+GTAATTAGATCTGTCAATTTCACGGACAATGCTAAAACCATAATAGTACAGCTGAACACATCTGTAGAAATTAATTGTAC
+AAGACCCAACAACAATACAAGAAAAAGAATCCGTATCCAGAGAGGACCAGGGAGAGCATTTGTTACAATAGGAAAAATAG
+GAAATATGAGACAAGCACATTGTAACATTAGTAGAGCAAAATGGAATAACACTTTAAAACAGATAGCTAGCAAATTAAGA
+GAACAATTTGGAAATAATAAAACAATAATCTTTAAGCAATCCTCAGGAGGGGACCCAGAAATTGTAACGCACAGTTTTAA
+TTGTGGAGGGGAATTTTTCTACTGTAATTCAACACAACTGTTTAATAGTACTTGGTTTAATAGTACTTGGAGTACTGAAG
+GGTCAAATAACACTGAAGGAAGTGACACAATCACCCTCCCATGCAGAATAAAACAAATTATAAACATGTGGCAGAAAGTA
+GGAAAAGCAATGTATGCCCCTCCCATCAGTGGACAAATTAGATGTTCATCAAATATTACAGGGCTGCTATTAACAAGAGA
+TGGTGGTAATAGCAACAATGAGTCCGAGATCTTCAGACCTGGAGGAGGAGATATGAGGGACAATTGGAGAAGTGAATTAT
+ATAAATATAAAGTAGTAAAAATTGAACCATTAGGAGTAGCACCCACCAAGGCAAAGAGAAGAGTGGTGCAGAGAGAAAAA
+AGAGCAGTGGGAATAGGAGCTTTGTTCCTTGGGTTCTTGGGAGCAGCAGGAAGCACTATGGGCGCAGCCTCAATGACGCT
+GACGGTACAGGCCAGA

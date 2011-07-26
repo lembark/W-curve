@@ -1,0 +1,118 @@
+#!/opt/bin/perl
+########################################################################
+# housekeeping
+########################################################################
+
+use v5.10;
+use strict;
+use FindBin::libs;
+
+use Test::More;
+
+use File::Basename;
+
+use List::Util          qw( min );
+
+use RandomDNA;
+
+use WCurve;
+use WCurve::Values;
+use DumperConfig;
+
+########################################################################
+# package variables
+########################################################################
+
+my $base    = basename $0, '.t';
+
+my ( $comp_type, $frag_type ) = $base =~ m{ ^ \d+ - (\w+) - (\w+) }x;
+
+my $verbose = $ENV{ VERBOSE }   || 0;
+my $passes  = $ENV{ PASSES  }   || 1;
+my $size
+= $ENV{ SIZE } || ( $ENV{ EXPENSIVE_TESTS } ? 2 ** 16 : 2 **  7 ) ;
+
+exists $ENV{ SEED }
+and srand $ENV{ SEED };
+
+my $comp        = WCurve::Compare->new( $comp_type => $verbose );
+
+my $base_seq    = generate_seq uniform_random => $size;
+my $wc0         = WCurve->new( $frag_type => Fixed => $base_seq );
+my $snp_window  = 2 + $wc0->fragment_type->snp_window;
+my $cutoff      = $size - $snp_window;
+
+my $n           = 0;
+
+########################################################################
+# run test
+########################################################################
+
+PASS:
+for my $pass ( 1 .. $passes )
+{
+    print "\nPass: $pass ($base)\n";
+
+    my $alt_seq     = $base_seq;
+
+    for
+    (
+        my $offset  = $snp_window   ;
+        $offset <= $cutoff          ;
+        $offset += $snp_window
+    )
+    {
+        ++$n;
+
+        munge_seq single_snp => $alt_seq, $offset;
+
+        my $wc1     = $wc0->new( "Offset: $offset" => $alt_seq );
+
+        my ( $chunkz )  = $comp->compare( $wc0, $wc1 );
+
+        my ( $i, $j )   = @{ $chunkz->[-2] }[1,2];
+
+        if( $i != $j )
+        {
+            my $message
+            = join "\n",
+            "Found gap: $offset ($i, $n)",
+            "base_seq: $base_seq", 
+            "alt_seq:  $alt_seq",
+            "SEED = $ENV{ SEED }",
+            Dumper $chunkz
+            ;
+
+            fail $message;
+
+            next PASS;
+        }
+        elsif( $i > $offset + $snp_window )
+        {
+            my $message
+            = join "\n",
+            "Late converge: $offset ($i, $n)",
+            "base_seq: $base_seq", 
+            "alt_seq:  $alt_seq",
+            "SEED = $ENV{ SEED }",
+            Dumper $chunkz
+            ;
+
+            fail $message;
+
+            next PASS;
+        }
+        else
+        {
+            pass "Aligned: $i == $j ($offset, $n)";
+        }
+    }
+}
+
+done_testing;
+
+# this is not a module
+
+0
+
+__END__

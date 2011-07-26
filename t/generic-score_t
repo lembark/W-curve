@@ -1,0 +1,45 @@
+########################################################################
+# housekeeping
+########################################################################
+package Testify;
+
+use v5.10;
+use strict;
+use FindBin::libs;
+
+use Test::More;
+
+use File::Basename  qw( basename );
+
+########################################################################
+# package variables
+########################################################################
+
+my $madness = basename $0, '.t';
+
+$madness    =~ s{^ \d+ [-] }{}x;
+$madness    =~ s{ \W+ }{::}gx;
+
+my @methodz
+= qw
+(
+    compute
+);
+
+########################################################################
+# run the tests
+########################################################################
+
+if( use_ok $madness )
+{
+    ok $madness->VERSION,               "$madness has a version";
+
+    for my $method ( @methodz )
+    {
+        ok $madness->can( $method ),    "$madness can '$method'";
+    }
+}
+
+done_testing;
+
+__END__

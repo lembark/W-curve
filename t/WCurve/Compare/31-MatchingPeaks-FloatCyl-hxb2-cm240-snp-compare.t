@@ -1,0 +1,1 @@
+generic-31-hxb2-cm240-snp-compare_t

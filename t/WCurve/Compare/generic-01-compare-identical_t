@@ -1,0 +1,93 @@
+########################################################################
+# housekeeping
+########################################################################
+
+package Testify;
+
+use v5.10;
+use strict;
+use FindBin::libs;
+use vars qw( %cornerz );
+
+use Data::Dumper;
+use File::Basename;
+use Test::More;
+use Test::Deep;
+
+use WCurve::Test::RandomDNA   qw( generate_seq );
+
+use WCurve;
+use WCurve::Compare;
+
+use WCurve::Test::Cmdline;
+
+########################################################################
+# package variables
+########################################################################
+
+my %cmdline = test_opts;
+
+my ( $verbose, $passes, $size ) 
+= @cmdline{ qw( verbose passes base_size ) };
+
+my ( $comp_type, $frag_type )   
+= @cmdline{ qw( comp_type frag_type ) };
+
+my $comp
+= WCurve::Compare->new
+(
+    $comp_type,
+    verbose => $cmdline{ verbose    },
+    debug   => $cmdline{ debug      },
+    payload => $cmdline{ payload    },
+);
+
+my $offset  = $size - 1;
+
+########################################################################
+# run tests
+########################################################################
+
+# check for rounding errors showing up in the comparisions.
+
+my @test_argz = 
+(
+    [ 0, 1  ],
+    [ 1, 0  ],
+);
+
+plan tests => $passes * @test_argz;
+
+my $expect = 
+[
+    [ 0, ( 1 ) x 4 ,                ],
+    [ 0, ( 1 ) x 2, ( $size ) x 2   ],
+    [ 0, ( $size ) x 4,             ]
+];
+
+for my $pass ( 1 .. $passes )
+{
+    $0  = "$cmdline{ base } pass $pass";
+    print "\n$0\n";
+
+    my $seq      = generate_seq uniform_random => $size;
+
+    my @curvz =
+    (
+        WCurve->new( $frag_type => one => $seq ),
+        WCurve->new( $frag_type => two => $seq ),
+    );
+
+    for( @test_argz )
+    {
+        my $found   = $comp->compare( @curvz[ @$_ ] );
+
+        cmp_deeply $found, $expect,  "Chunks Match ($pass, @$_)";
+    }
+}
+
+# this is not a module
+
+0
+
+__END__

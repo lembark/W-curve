@@ -1,0 +1,884 @@
+########################################################################
+# node-level utilities used by MatchingPeaks methods.
+########################################################################
+########################################################################
+# housekeeping
+########################################################################
+
+package WCurve::Compare::MatchingPeaks::NodeOps;
+
+use v5.10;
+use strict;
+
+use Exporter::Proxy
+qw
+(
+    setup_compare
+    distance
+    diverge
+    compare_nodes
+);
+
+use Carp                qw( cluck confess );
+use List::Util          qw( first reduce max min sum );
+use Scalar::Util        qw( refaddr looks_like_number );
+use Symbol              qw( qualify qualify_to_ref );
+
+use WCurve::Values;
+use WCurve::Util::DumperConfig;
+
+########################################################################
+# package variables
+########################################################################
+
+our $VERSION    = 01;
+
+my $verbose = '';   # progress messages
+my $debug   = '';   # skips, snps
+my $trace   = '';   # all decision values
+my $break   = '';   # set breakpoints programatically
+
+my $snp_window  = 0;
+my $margin      = 0;
+my $converge    = 0;
+my $sym_margin  = 0;
+my $cmp_margin  = 0;
+my $sym_window  = 0;
+my $cmp_window  = 0;
+
+########################################################################
+# utility subs
+########################################################################
+
+sub setup_compare
+{
+    my $parmz   = shift;
+
+    $snp_window = $parmz->{ snp_window  };
+
+    $sym_margin = $parmz->{ symmetric_margin };
+    $cmp_margin = $parmz->{ composite_margin };
+
+    $sym_window = $parmz->{ symmetric_window };
+
+    $verbose    = $parmz->{ verbose };
+
+    $debug      = $verbose > 1;
+    $trace      = $verbose > 2;
+
+    $break      = $parmz->{ break };
+
+    return
+}
+
+# matching_peaks installs these from the fragment modules.
+
+sub distance
+{
+    state $name = qualify 'distance';
+
+    confess
+    "Bogus $name: matching_peaks bypassed, no local 'distance'";
+}
+
+sub diverge
+{
+    state $name = qualify 'diverge';
+
+    confess
+    "Bogus $name: matching_peaks bypassed, no local 'diverge'";
+}
+
+
+########################################################################
+# node handlers. these get the lowest-level, un-blessed data unit
+# for speed.
+########################################################################
+
+########################################################################
+# walk past a SNP by looking for a number of sequential points where the
+# curves converge.
+
+sub skip_snp
+{
+    # i.e., how many small values are required in order
+    # to consider the snp skipped? this is tested via
+    # ++$count > $no_match, so a value of 2 requires
+    # three matches.
+
+    state $min_count = 3;
+
+    my ( $node0, $node1, $window, $count ) = @_;
+
+    @$node0 or return;
+    @$node1 or return;
+
+    $window ||= $snp_window;
+    $count  ||= $min_count;
+
+    print "\tSkip SNP:\t[ $node0->[3] : $node1->[3] ] ($window, $count)"
+    if $trace;
+
+    my $remain  = $count;
+    my $sum     = 0;
+    my $diff    = 0;
+
+    while( $remain )
+    {
+        $diff   = distance $node0, $node1;
+        $sum    += $diff;
+
+        if( diverge $diff, $node0, $node1 )
+        {
+            print "\tDiverge:\t[ $node0->[3] : $node1->[3] ]"
+            if $trace;
+
+            $remain = $count;
+        }
+        else
+        {
+            print "\tConverge:\t[ $node0->[3] : $node1->[3] ] ($remain / $count)"
+            if $trace;
+
+            --$remain;
+        }
+    }
+    continue
+    {
+        --$window           or last;
+        $window >= $remain  or last;
+
+        @{ $node0->[0] }    or last;
+        @{ $node1->[0] }    or last;
+
+        $node0  = $node0->[0];
+        $node1  = $node1->[0];
+    }
+
+    # if remain is still true then return nothing,
+    # otherwise return the next points to be examined.
+    # this avoids double-counting differences when the
+    # returned points are examined.
+
+    $remain
+    ? ()
+    : ( $sum, $node0, $node1 )
+}
+
+########################################################################
+# if there appears to be a gap, find the closest matching
+# peaks by walking down each side.
+#
+# this needs some tuning as to whether it preferrs higher
+# peaks (larger r) or just the next spot where the angles
+# are reasonably close.
+#
+# two separate cases: the curves re-align at the same Z value
+# later on (preferable) or a phase shift needs to be
+# introduced.
+
+sub local_peaks
+{
+    my ( $node, $cutoff ) = @_;
+
+    my @found   = ();
+
+    while( @$node && $cutoff > $node->[3] )
+    {
+        $node   = $node->[4];
+
+        push @found, $node;
+
+        $node or last;
+    }
+
+    @found
+    or return;
+
+    wantarray
+    ?  @found
+    : \@found
+}
+
+sub generate_offsets
+{
+    my
+    (
+        $node0,
+        $node1,
+        $cutoff0,
+        $cutoff1,
+        $off2count,
+        $off2peakz,
+    ) = @_;
+
+    print "\tOffsets at: [ $node0->[3] : $node1->[3] ] -> [ $cutoff0, $cutoff1 ]"
+    if $trace;
+
+    my $group0  = local_peaks $node0, $cutoff0
+    or return;
+
+    my $group1  = local_peaks $node1, $cutoff1
+    or return;
+
+    my $z0  = $node0->[3];
+    my $z1  = $node1->[3];
+
+    my $offset  = 0;
+
+    for my $p0 ( @$group0 )
+    {
+        $p0 or last;
+
+        my $z0  = $p0->[3];
+
+        for my $p1 ( @$group1 )
+        {
+            $p1 or next;
+
+            skip_snp $p0, $p1, 3, 3
+            or next;
+
+            my $z1  = $p1->[3];
+
+            $offset = $z0 - $z1;
+
+            # can't use an array here since $offset
+            # may be negative.
+
+            ++$off2count->{ $offset };
+
+            $off2peakz->{ $offset }
+            ||= $z0 < $z1
+            ? [ $z0, $z1, $z0, $z1 ]
+            : [ $z1, $z0, $z0, $z1 ]
+            ;
+        }
+    }
+
+    print "\tResult:", Dumper $off2count, $off2peakz
+    if $trace;
+
+    ( $group0, $group1 )
+}
+
+########################################################################
+# last-ditch efforts to find an offset: single value for the offset,
+# single value > all others.
+
+sub select_peaks
+{
+    my ( $off2count, $off2peakz, $margin ) = @_;
+
+    print "Select margin: +$margin"
+    if $verbose;
+
+    # find the top vote, validate it.
+
+    my @new
+    = eval
+    {
+        %$off2count
+        or die "No offset: empty counts\n";
+
+        my @countz
+        = do
+        {
+            my $i   = 0;
+
+            map
+            {
+                $i != $_
+                ? ( $i = $_ )
+                : ()
+            }
+            sort
+            {
+                $a <=> $b
+            }
+            values %$off2count
+        };
+
+        $countz[-1] > $margin
+        or die "No offset: Small counts ($margin)\n";
+
+        my $i
+        = do
+        {
+            if( @countz > 1 )
+            {
+                if( $margin )
+                {
+                    first
+                    {
+                        $countz[$_] > $countz[$_-1] + $margin
+                    }
+                    ( 1 .. $#countz )
+                }
+                else
+                {
+                    first
+                    {
+                        $countz[$_] > $sym_margin
+                    }
+                    ( 0 .. $#countz )
+                }
+            }
+            elsif( $countz[0] > $margin )
+            {
+                0
+            }
+        }
+        // die "No offset: no count ($margin > @countz)\n";
+
+        splice @countz, 0, $i;
+
+        print "Candidate counts:\t@countz"
+        if $verbose;
+
+        my @offsetz = grep { $off2count->{ $_ } ~~ @countz } keys %$off2count
+        or confess "Botched new offset: no offsets found for @countz";
+
+        print "Candidate offsets:\t@offsetz"
+        if $verbose;
+
+        my @nodz
+        = do
+        {
+            my @found   = @{ $off2peakz }{ @offsetz };
+
+            print "Candidate nodes: @offsetz\n", Dumper @found, "\n"
+            if $verbose;
+
+            my $a
+            = reduce
+            {
+                $a->[0] < $b->[0] ? $a :
+                $a->[0] > $b->[0] ? $b :
+                $a->[1] < $b->[1] ? $a :
+                $a->[1] > $b->[1] ? $b : $a
+            }
+            @found;
+
+            @$a[2,3]
+        };
+
+        if( $verbose )
+        {
+            local $"    = q{ : };
+
+            print "Adjust window:  [ @nodz ]"
+            if $verbose;
+        }
+
+        @nodz
+    };
+
+    given( $@ )
+    {
+        when( '' )
+        {
+            return @new
+        }
+        when( /^No offset:/ )
+        {
+            print $@ if $verbose;
+        }
+        default
+        {
+            confess $@
+        }
+    }
+
+    return
+}
+
+sub generate_offset_symmetric
+{
+    my ( $prior0, $prior1 ) = @_;
+    my ( $after0, $after1 ) = @_;
+
+    $prior0     or return;
+    $prior1     or return;
+    @$prior0    or return;
+    @$prior1    or return;
+
+    my $pass1   = 2 * $sym_window;
+    my $passN   = $sym_window;
+
+    my $cutoff0 = $prior0->[3] + $pass1;
+    my $cutoff1 = $prior1->[3] + $pass1;
+
+    my @state   = ( {}, {} );
+
+    my $i       = 0;
+    my $run     = 1;
+
+    for(;;)
+    {
+        ++$i;
+
+        print "Symmetric offset pass $i: [ $prior0->[3] .. $cutoff0 ] : [ $prior1->[3] .. $cutoff1 ]"
+        if $verbose;
+
+        my ( $group0 )
+        = generate_offsets
+        $after0,
+        $prior1,
+        $cutoff0,
+        $cutoff1,
+        @state,
+        ;
+
+        my ( undef, $group1 )
+        = generate_offsets
+        $prior0,
+        $after1,
+        $cutoff0,
+        $cutoff1,
+        @state,
+        ;
+
+        $after0 = $group0->[-1] || $group0->[-2];
+        $after1 = $group1->[-1] || $group1->[-2];
+
+        print
+        "Offsets found:\t" .
+        "[ $prior0->[3] .. $after0->[3] ]",
+        ' ',
+        "[ $prior1->[3] .. $after1->[3] ]",
+        "\n",
+        Dumper $state[0]
+        if $debug;
+
+        if( my @nodz = select_peaks @state, $sym_margin )
+        {
+            return @nodz
+        }
+
+        $run    = $group0->[-1] && $group1->[-1]
+        or last;
+
+        $cutoff0    += $passN;
+        $cutoff1    += $passN;
+    }
+
+    select_peaks @state, 0
+}
+
+sub initial_align_symmetric
+{
+    goto &generate_offset_symmetric
+}
+
+
+sub generate_offset_composite
+{
+    my ( $node0, $node1, $e0, $e1 ) = @_;
+
+    # this doesn't change.
+
+    my $z1      = $node1->[3];
+    my $window1 = $e1 - $z1 + 1;
+    my $cutoff1 = $e1;
+
+    # these change as $node0 moves up the curve.
+
+    my $z0      = $node0->[3];
+    my $window0 = $e0 - $snp_window;
+    my $cutoff0 = min $e0, $z0 + $window1;
+
+    print "Composite offset:\t[ $z0 .. $cutoff0 ] : [ $z1 .. $cutoff1 ] ($window1)"
+    if $verbose;
+
+    my $i       = 0;
+
+    my @state   = ( {}, {} );
+
+    for(;;)
+    {
+        ++$i;
+
+        %$_ = () for @state;
+
+        print "Composite offset pass $i:\t[ $z0 .. $cutoff0 ]"
+        if $verbose;
+
+        my ( $group0 )
+        = generate_offsets
+        $node0,
+        $node1,
+        $cutoff0,
+        $cutoff1,
+        @state,
+        ;
+
+        $node0  = $group0->[-1] || $group0->[-2];
+
+        print
+        "Composite offsets:\t[ $z0 .. $node0->[3] ] : [ $z1 .. $node0->[3] ]",
+        Dumper @state
+        if $debug;
+
+        if( my @nodz = select_peaks @state, $sym_margin )
+        {
+            return @nodz
+        }
+
+        $group0->[-1]
+        or last;
+
+        $z0         = $node0->[3];
+        $cutoff0    = $z0 + $window1;
+
+        $window0 > $cutoff0
+        or last;
+    }
+
+    select_peaks @state, 0
+}
+
+sub initial_align_composite
+{
+    my ( $node0, $node1, $e0, $e1 ) = @_;
+
+    # these don't change during the call.
+
+    my $z1      = $node1->[3];
+    my $window  = min 80, $e1 - $z1;
+
+    $window > $snp_window
+    or die "Bogus initial_align_composite: $window [$z1 .. $e1] too small";
+
+    # this doesn't change.
+
+    my $cutoff1 = $z1 + $window;
+
+    print
+    "Composite initial sizes:\t[ $node0->[3] .. $e0 ] : [ $z1 .. $e1 ] ($window)"
+    if $verbose;
+
+    my $i       = 0;
+    my @state   = ( {}, {} );
+
+    for(;;)
+    {
+        ++$i;
+
+        my $z0      = $node0->[3];
+        my $cutoff0 = $z0 + $window;
+
+        $e0 >= $cutoff0
+        or last;
+
+        print
+        "Composite initial pass $i:\t[ $z0 .. $cutoff0 ] : [ $z1 .. $cutoff1 ]"
+        if $verbose;
+
+        my ( $group0 )
+        = generate_offsets
+        $node0,
+        $node1,
+        $cutoff0,
+        $cutoff1,
+        @state,
+        ;
+
+        $node0  = $group0->[-1] || $group0->[-2];
+
+        print
+        "Initial candidate:\t\t[ $z0 .. $node0->[3] ] : [ $z1 .. $cutoff1 ]\n",
+        Dumper $state[0], "\n"
+        if $debug;
+
+        if( my @nodz = select_peaks @state, $sym_margin )
+        {
+            return @nodz
+        }
+
+        $group0->[-1]
+        or last;
+    }
+
+    select_peaks @state, 0
+}
+
+########################################################################
+# use the realignment offsets to locate starting
+# points for node comparision: symmetric and
+# composite. symmetric examines both sides of
+# the gap window looking for matches; composite
+# moves the shorter curve along the longer one
+# to find a starting point.
+#
+# the gap introduces this much add'l phase shift
+# between the curves. if it is more than the old
+# offset then node0 has to be advanced,
+# otherwise node1 is advanced if the old offset
+# is larger; otherwise the process just skipped
+# over an equal amount of junk on both sides and
+# they can be re-aligned with skip_snp and a
+# large window.
+
+sub adjust_nodes
+{
+    # report bulk movement, including the gap.
+
+    my ( $node0, $node1, $p0, $p1 ) = @_;
+
+    my $z0  = $node0->[3];
+    my $z1  = $node1->[3];
+
+    my $gap = ( $p0 - $p1 ) - ( $z0 - $z1 );
+
+    # adjust the relative positions based on which side
+    # the gap is on.
+
+    given( $gap <=> 0 )
+    {
+        when( +1 ){ $node0 = $node0->[0] for( 1 .. +$gap ) }
+        when( -1 ){ $node1 = $node1->[0] for( 1 .. -$gap ) }
+    }
+
+    # walk up the remaining area looking for the first short match.
+
+    for( $node0->[3] .. $p0 )
+    {
+        skip_snp $node0, $node1, $snp_window
+        and last;
+
+        $node0 = $node0->[0];
+        $node1 = $node1->[0];
+
+        @$node0 or last;
+        @$node1 or last;
+    }
+
+    printf "Adjusted nodes: [ %d : %d } -> [ %d : %d ] (+%d)\n",
+    $z0, $z1, $node0->[3], $node1->[3], $gap
+    if $verbose;
+
+    ( $node0, $node1 )
+}
+
+sub initial_alignment
+{
+    my $type    = shift;
+
+    print "Initial alignment: $type"
+    if $verbose;
+
+    my ( $node0, $node1 ) = @_;
+
+    my $name    = 'initial_align_' . $type;
+
+    my $handler = __PACKAGE__->can( $name )
+    or confess "Bogus initial_alignment: unknown handler '$name'";
+
+    my @nodz    = &$handler
+    or return;
+
+    adjust_nodes $node0, $node1, @nodz
+}
+
+sub realign_nodes
+{
+    my ( $node0, $node1 ) = @_;
+
+    my @nodz    = &generate_offset_symmetric
+    or return;
+
+    print do
+    {
+        local $"    = ' : ';
+
+        "\nRealigned at: [ $node0->[3] : $node1->[3] ] -> [ @nodz ]\n"
+    }
+    if $verbose;
+
+    adjust_nodes $node0, $node1, @nodz
+}
+
+########################################################################
+# walk down the lists while there are nodes to process and the curves
+# either remain converged or differ by SNP's.
+
+sub compare_aligned
+{
+    my ( $node0, $node1 ) = @_;
+
+    $node0 or return;
+    $node1 or return;
+
+    @$node0 or return;
+    @$node1 or return;
+
+    print
+    "Compare aligned:\t[ $node0->[3] : $node1->[3] ]"
+    if $debug;
+
+    my $show_zero   = 1;
+
+    my $diff        = 0;
+    my $sum         = 0;
+
+    my @nodz        = ();
+
+    for(;;)
+    {
+        $diff = distance $node0, $node1;
+
+        if( diverge $diff, $node0, $node1 )
+        {
+            ( $diff, @nodz ) = skip_snp $node0, $node1
+            or last;
+
+            ( $node0, $node1 ) = @nodz;
+
+            $show_zero = 1;
+        }
+        else
+        {
+            $show_zero &&= 0;
+        }
+
+        $sum    += $diff;
+
+        print
+        "\tCompare:\t[ $node0->[3] : $node1->[3] ] => $diff ($sum)"
+        if $debug && ( $diff || $show_zero );
+
+        # i.e., nothing left to compare.
+
+        @{ $node0->[0] } or last;
+        @{ $node1->[0] } or last;
+
+        $node0  = $node0->[0];
+        $node1  = $node1->[0];
+
+        # turn this off after the first zero to
+        # avoid huge numbers of zeros in the logs.
+
+        $show_zero  &&= $diff;
+    }
+
+    # hand back the point at which the curves diverged
+    # for further processing.
+
+    ( $sum, $node0, $node1 )
+}
+
+########################################################################
+# bottom half of the comparision: walk the nodes, return the value.
+#
+# walk the nodes down an entire curve.
+# exits when one of the linked lists
+# runs out of nodes.
+#
+# note that this has no idea about WCurve objects.
+
+sub compare_nodes
+{
+    local $\    = "\n";
+    local $"    = ' ';
+
+    my ( $type, $node0, $node1, $e0, $e1 ) = @_;
+
+    my @start   = &initial_alignment
+    or return;
+
+    my @finish  = ();
+
+    # avoid dealing with gaps with lt $snp_window
+    # bases to the end: there isn't any good way
+    # to re-align the curves at that point anyway.
+
+    my @chunkz =
+    (
+        [
+            0,
+
+            $node0->[3],
+            $node1->[3],
+
+            $start[0][3],
+            $start[1][3],
+        ]
+    );
+
+    my $z0  = $e0 - $snp_window - 1;
+    my $z1  = $e1 - $snp_window - 1;
+
+    for(;;)
+    {
+        # sans gaps, this will leave $node0 and $node1
+        # at the end of their curves. with gaps
+        # they will be at the point of divergence.
+
+        my ( $diff, @finish ) = compare_aligned @start;
+
+        my @valz    = map { $_->[3] } @start, @finish;
+
+        if( $valz[3] >= $valz[1] )
+        {
+            push @chunkz, [ $diff, @valz ];
+        }
+        else
+        {
+            $verbose    = 1;
+            $debug      = 1;
+            $trace      = 1;
+        }
+
+        print "Chunk $#chunkz:\n", Dumper $chunkz[-1],
+        if $debug;
+
+        # quit if there isn't enough space left
+        # to re-align the curves.
+
+        $z0 > $finish[0][3]  or last;
+        $z1 > $finish[1][3]  or last;
+
+        @start  = realign_nodes @finish
+        or last;
+    }
+
+    # at this point the remaining portion of each curve
+    # is considered a gap: there is too little space to
+    # re-align them or they simply do not re-align.
+
+    print "Finished:\t[ $finish[0][3] : $finish[1][3] ]"
+    if $verbose;
+
+    # at this point $node0 and $node1 have run out
+    # of curve: store any trailing gaps in
+    # the final chunk.
+    #
+    # add any trailing SNP's.
+    # accumulate the rest as a final gap.
+
+    given( $type )
+    {
+        ( $z0, $z1 ) = @{ $chunkz[-1] }[3, 4];
+
+        when( 'composite' )
+        {
+            push @chunkz, [ 0, $z0, $z1, $z0, $z1 ];
+        }
+
+        default
+        {
+            push @chunkz, [ 0, $z0, $z1, $e0, $e1 ]
+        }
+    }
+
+    wantarray
+    ?  @chunkz
+    : \@chunkz
+}
+
+# keep require happy
+
+1
+
+__END__

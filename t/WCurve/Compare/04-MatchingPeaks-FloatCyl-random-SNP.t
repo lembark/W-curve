@@ -1,0 +1,1 @@
+generic-04-random-SNP_t

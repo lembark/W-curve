@@ -1,0 +1,1 @@
+generic-06-adjacent-snp_t

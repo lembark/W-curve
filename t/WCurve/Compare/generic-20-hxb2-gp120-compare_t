@@ -1,0 +1,119 @@
+########################################################################
+# housekeeping
+########################################################################
+
+package Testify;
+
+use v5.10;
+use strict;
+use FindBin::libs;
+use vars qw( %cornerz );
+
+use File::Basename;
+use Test::More;
+use Test::Deep;
+
+use WCurve::Util::DumperConfig;
+use WCurve::Test::RandomDNA       qw( generate_seq );
+
+use WCurve;
+use WCurve::Compare;
+
+use WCurve::Test::Cmdline;
+
+########################################################################
+# package variables
+########################################################################
+
+my %cmdline = test_opts;
+
+my ( $base, $comp_type, $frag_type )
+= @cmdline{ qw( base comp_type frag_type ) };
+
+my ( $verbose, $debug )
+= @cmdline{ qw( verbose debug ) };
+
+my $comp
+= WCurve::Compare->new
+(
+    $comp_type,
+    verbose     => $cmdline{ verbose    },
+    debug       => $cmdline{ debug      },
+    payload    => $cmdline{ payload   },
+);
+
+my $template 
+= do
+{
+    local $/;
+
+    WCurve->new( $frag_type => 'HXB2 gp120' )->read_seq( <DATA> );
+};
+
+my $wc0 = $template->new( 'HXB2 gp120' => $template->sequence );
+
+my $limit   = 5;
+
+my @resultz
+= $comp->compare( $wc0, $template ); 
+
+for my $frag ( $template->fragments )
+{
+    # ignore filler
+
+    my $chunkz  = shift @resultz
+    or next;
+
+    if( @$chunkz )
+    {
+        my $start   = $frag->start;
+        my $stop    = $frag->stop;
+
+        my $begin   = $chunkz->[1][2];
+        my $end     = $chunkz->[1][4];
+
+        ok $start == $begin, "Begin: $begin ($start)($frag)";
+        ok $stop  == $end,   "End:   $end ($stop)($frag)";
+    }
+    else
+    {
+        fail "No initial alignment";
+    }
+}
+
+done_testing;
+
+0
+
+__DATA__
+%HIVHXB2CG Human immunodeficiency virus type 1 (HXB2), complete genome, HIV1/HTLV-III/LAV reference genome.
+C1      1       301     ;
+V1      302     379     ;
+V2      380     495     ;
+C2      496     796     ;
+V3      797     900     ;
+C3      901     1063    ;
+V4      1064    1161    ;
+C4      1162    1287    ;
+V5      1288    1317    ;
+C5      1318    1395    ;
+ACAGAAAAATTGTGGGTCACAGTCTATTATGGGGTACCTGTGTGGAAGGAAGCAACCACCACTCTATTTTGTGCATCAGA
+TGCTAAAGCATATGATACAGAGGTACATAATGTTTGGGCCACACATGCCTGTGTACCCACAGACCCCAACCCACAAGAAG
+TAGTATTGGTAAATGTGACAGAAAATTTTAACATGTGGAAAAATGACATGGTAGAACAGATGCATGAGGATATAATCAGT
+TTATGGGATCAAAGCCTAAAGCCATGTGTAAAATTAACCCCACTCTGTGTTAGTTTAAAGTGCACTGATTTGAAGAATGA
+TACTAATACCAATAGTAGTAGCGGGAGAATGATAATGGAGAAAGGAGAGATAAAAAACTGCTCTTTCAATATCAGCACAA
+GCATAAGAGGTAAGGTGCAGAAAGAATATGCATTTTTTTATAAACTTGATATAATACCAATAGATAATGATACTACCAGC
+TATAAGTTGACAAGTTGTAACACCTCAGTCATTACACAGGCCTGTCCAAAGGTATCCTTTGAGCCAATTCCCATACATTA
+TTGTGCCCCGGCTGGTTTTGCGATTCTAAAATGTAATAATAAGACGTTCAATGGAACAGGACCATGTACAAATGTCAGCA
+CAGTACAATGTACACATGGAATTAGGCCAGTAGTATCAACTCAACTGCTGTTAAATGGCAGTCTAGCAGAAGAAGAGGTA
+GTAATTAGATCTGTCAATTTCACGGACAATGCTAAAACCATAATAGTACAGCTGAACACATCTGTAGAAATTAATTGTAC
+AAGACCCAACAACAATACAAGAAAAAGAATCCGTATCCAGAGAGGACCAGGGAGAGCATTTGTTACAATAGGAAAAATAG
+GAAATATGAGACAAGCACATTGTAACATTAGTAGAGCAAAATGGAATAACACTTTAAAACAGATAGCTAGCAAATTAAGA
+GAACAATTTGGAAATAATAAAACAATAATCTTTAAGCAATCCTCAGGAGGGGACCCAGAAATTGTAACGCACAGTTTTAA
+TTGTGGAGGGGAATTTTTCTACTGTAATTCAACACAACTGTTTAATAGTACTTGGTTTAATAGTACTTGGAGTACTGAAG
+GGTCAAATAACACTGAAGGAAGTGACACAATCACCCTCCCATGCAGAATAAAACAAATTATAAACATGTGGCAGAAAGTA
+GGAAAAGCAATGTATGCCCCTCCCATCAGTGGACAAATTAGATGTTCATCAAATATTACAGGGCTGCTATTAACAAGAGA
+TGGTGGTAATAGCAACAATGAGTCCGAGATCTTCAGACCTGGAGGAGGAGATATGAGGGACAATTGGAGAAGTGAATTAT
+ATAAATATAAAGTAGTAAAAATTGAACCATTAGGAGTAGCACCCACCAAGGCAAAGAGAAGAGTGGTGCAGAGAGAAAAA
+AGAGCAGTGGGAATAGGAGCTTTGTTCCTTGGGTTCTTGGGAGCAGCAGGAAGCACTATGGGCGCAGCCTCAATGACGCT
+GACGGTACAGGCCAGA
