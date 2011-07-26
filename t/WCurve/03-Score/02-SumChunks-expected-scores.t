@@ -1,6 +1,6 @@
 #!/opt/bin/perl
 
-use v5.10;
+use v5.12;
 use strict;
 use FindBin::libs;
 

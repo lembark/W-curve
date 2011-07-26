@@ -4,7 +4,7 @@
 
 package WCurve::Score::Display;
 
-use v5.10;
+use v5.12;
 use strict;
 
 use WCurve::Util::Print qw( print_dump );

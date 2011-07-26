@@ -4,7 +4,7 @@
 
 package WCurve::Test::RandomDNA::Constants;
 
-use v5.10;
+use v5.12;
 use strict;
 
 use Exporter::Proxy

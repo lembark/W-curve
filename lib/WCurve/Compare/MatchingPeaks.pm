@@ -4,7 +4,7 @@
 
 package WCurve::Compare::MatchingPeaks;
 
-use v5.10;
+use v5.12;
 use strict;
 
 use parent qw( WCurve::Compare );

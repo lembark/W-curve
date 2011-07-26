@@ -6,7 +6,7 @@
 
 package WCurve::Util::JSON;
 
-use v5.14;
+use v5.12;
 use FindBin::libs;
 use autodie qw(open close );
 
