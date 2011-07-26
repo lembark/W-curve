@@ -10,4 +10,7 @@ Note: The tests are designed to run in reasonable time for
 most situations. They test whether the code runs or suffers
 from rounding errors. For longer tests or benchmarks define
 EXPENSIVE_TESTS to run with longer random DNA strings or 
-to run tests that otherwise take too long.
+to run tests that otherwise take too long. Some of the
+tests in WCurve/02-Compare are more torture-tests than 
+code validation and are likely to fail at the edges. 
+
