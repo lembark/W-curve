@@ -1,6 +1,10 @@
 Public versions of W-curve code and data used in published papers
 and presentations.
 
+The most recent tag is for BioComp_2011, "BioComp_2011_c".
+Checking this out will get the most recent stable version
+of the code used for that paper.
+
 Please see publicatons for specific URI's used to referenced 
 materials (these will include branches). Otherwise feel free
 to wander through the repository. The "master" branch will
