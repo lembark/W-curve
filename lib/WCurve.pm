@@ -13,6 +13,7 @@ use ArrayObj;
 use Carp;
 use File::Basename;
 
+use JSON::XS        qw( encode_json );
 use List::Util      qw( sum );
 use Scalar::Util    qw( looks_like_number reftype blessed );
 use Symbol          qw( qualify qualify_to_ref );
@@ -292,40 +293,22 @@ sub write_template
     $wc
 }
 
-sub write_json
+# called from dancer code, this will take in a 
+# fasta input (or path) and return the json-
+# encoded structure. 
+
+sub curview
 {
-    my ( $wc, $dir ) = @_;
+    my $wc  = shift;
 
-    ( my $base  = "$wc" ) =~ s/\W+/_/g;
-
-    local $\;
-
-    # note that there may be more than one 
-    # path for a given input where the fasta
-    # file contains multiple sequences.
-
-    my @pathz
+    my @structz
     = map
     {
-        my $path
-        = $base ne $_
-        ? "$dir/$base-$_.json"
-        : "$dir/$_.json"
-        ;
-
-        open my $fh, '>', $path;
-
-        print $fh $_->json;
-
-        close $fh;
-
-        $path
+        $_->curview
     }
-    $wc->fragments;
+    $wc->fragmsnts;
 
-    wantarray
-    ?  @pathz
-    : \@pathz
+    encode_json \@structz
 }
 
 1
@@ -338,8 +321,7 @@ WCurve - Container class for W-curve fragments.
 
 =head1 SYNOPSIS
 
-    # valid types are provided in @valid_typz.
-    # $dna can be a char string, which is used to construct
+    # valid types are provided in @valid_typz.  # $dna can be a char string, which is used to construct
     # fragments, or a reference at which point it's taken as-is.
 
     # the name is used to stringify the WC.

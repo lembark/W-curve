@@ -287,13 +287,22 @@ sub porcupine
     return
 }
 
-sub json
+# convert the struct to ( x, y, z, r, g, b )
+
+sub curview
 {
     my $frag   = shift;
 
     my $listh   = $frag->list->head;
 
-    my @coordz  = ();
+    # name, size, [ x, y, z, r, g, b ]
+    # 0 placeholder is filled in below.
+
+    my @coordz =
+    (
+        "$frag",
+        0,
+    );
 
     while( my ( $radius, $angle ) = $listh->each )
     {
@@ -314,7 +323,20 @@ sub json
         push @coordz, [ $x, $y, @$color ];
     }
 
-    encode_json \@coordz
+    $coordz[1]  = @coordz;
+
+    wantarray
+    ?  @coordz
+    : \@coordz
+}
+
+sub json
+{
+    my $frag    = shift;
+
+    my $struct  = $frag->json_struct;
+
+    encode_json $struct
 }
 
 
