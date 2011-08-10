@@ -12,20 +12,13 @@ use Getopt::Long;
 use Parallel::Queue;
 use Pod::Usage;
 
-use File::Temp  qw( tempfile    );
-use List::Util  qw( max         );
-
 use WCurve;
-use WCurve::Compare;
-use WCurve::Score;
-
-use Parallel::Queue qw( export=process_rows );
 
 ########################################################################
 # package variables
 ########################################################################
 
-my %cmdline
+my $cmdline
 = do
 {
     my %argz    = ();
@@ -93,178 +86,16 @@ my %cmdline
         }
     };
 
-    %argz
+    \%argz
 };
 
-# dirname of output 
-
-my $input   = $ARGV[0];
-
-my ( $base, $dir )
-= do
-{
-    my $path    = $cmdline{ output } || $input;
-
-    fileparse $path, qw( .bz2 .gz .fasta .fa )
-};
-
-my $prefix  = "$dir/$base";
-
-my $proto   = WCurve         ->new( FloatCyl => 'Prototype' );
-my $comp    = WCurve::Compare->new( 'MatchingPeaks'         );
-my $score   = WCurve::Score  ->new( 'SumChunks'             );
-
-$score->indel_cost( $cmdline{ skip      } );
-$score->gap_cost  ( $cmdline{ gap       } );
-$score->verbose   ( $cmdline{ verbose   } );
+my $proto   = WCurve->new( FloatCyl => 'Prototype' );
 
 my @curvz   = $proto->read_seq;
-my $n       = $#curvz - 1;
 
-my $id_format   = '%-10.10s';
-my $val_format  = "\t%8.6f";
+my $path    = $proto->dist_matrix( $cmdline, @curvz );
 
-my $outpath = "$prefix.infile";
-open my $output, '>', $outpath
-or die "$outpath: $!";
-
-my $zero    = '0' x length $n;
-
-my @row_filz
-= map
-{
-    my $path    = "$prefix-$_.row";
-
-    open my $fh, '>', $path
-    or die "$path: $!";
-
-    [ $path => $fh ]
-}
-( "$zero" .. "$n" );
-
-my @log_filz
-= map
-{
-    my $path    = "$prefix-$_.log";
-
-    open my $fh, '>', $path
-    or die "$path: $!";
-
-    [ $path => $fh ]
-}
-( "$zero" .. "$n" );
-
-########################################################################
-# utility subs
-########################################################################
-
-sub process_row
-{
-    my $i       = shift;
-
-    my $wc0 = $curvz[$i];
-
-    my ( $log_path, $log ) = @{ $log_filz[$i] };
-    my ( $row_path, $row ) = @{ $row_filz[$i] };
-
-    print "Row ($i / $n) : '$wc0' -> $log_path \n";
-
-    local *STDOUT   = $log;
-
-    local $,    = "\t";
-    local $\    = "\n";
-
-    print $row map
-    {
-        $0          = "compare-fasta $base $wc0 $_";
-
-        my $chunkz  = $comp->compare( $wc0, $_ );
-
-        $score->compute( $chunkz )
-    }
-    (
-        @curvz[ $i + 1 .. $#curvz ]
-    )
-    or die "$row_path: $!";
-
-    close $row          or die "$row_path: $!";
-    close $log          or die "$log_path: $!";
-
-    return
-}
-
-########################################################################
-# process the rows in parallel then accumulate the results
-########################################################################
-
-my @queue
-= map
-{
-    my $i   = $_;
-
-    sub { process_row $i }
-}
-( 0 .. $#curvz-1 );
-
-process_rows $cmdline{ jobs }, @queue;
-
-print STDOUT "Consolidating rows...\n";
-
-my @output
-= map
-{
-    my $path    = $_->[0];
-
-    my $row
-    = do
-    {
-        open my $fh, '<', $path or die "$path: $!";
-
-        local $/;
-
-        <$fh>
-    };
-
-    [ 0, split /\s+/, $row ]
-}
-@row_filz;
-
-push @output, [0];
-
-# convert the upper-triangular matrix to a square,
-# preserving the row headers.
-
-$DB::single = 1;
-
-my $i   = -1;
-
-for my $row ( @output )
-{
-    my $j       = $i++;
-
-    my @reflect = map { $_->[$i] } @output[ 0 .. $j ];
-
-    unshift $row, @reflect;
-}
-
-print $output scalar @curvz;
-print $output "\n";
-
-for( @output )
-{
-    my $wc  = shift @curvz;
-
-    printf $output '%-10.10s' => "$wc";
-    printf $output "\t%8.6f" => $_ for @$_;
-    print  $output "\n";
-}
-
-close $output
-or die "$outpath: $!";
-
-unlink $_->[0] for @row_filz, @log_filz;
-
-print STDOUT "\nOutput in: $outpath\n";
+print STDOUT "\nOutput in: $path\n";
 
 0
 

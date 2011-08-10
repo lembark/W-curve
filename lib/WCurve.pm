@@ -23,6 +23,7 @@ use WCurve::Compare;
 use WCurve::Score;
 
 use WCurve::ReadSeq;
+use WCurve::DistMatrix;
 
 use overload
 
