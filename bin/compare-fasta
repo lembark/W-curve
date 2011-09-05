@@ -28,6 +28,7 @@ my $cmdline
     (
         jobs=i
 
+        tmpdir=s
         output=s
 
         gap=f
@@ -65,8 +66,29 @@ my $cmdline
     $argz{ $_ } //= $defz{ $_ }
     for keys %defz;
 
-    $argz{ jobs }
+    $argz{ output }
     ||= do
+    {
+        if( @ARGV )
+        {
+            my $dir     = dirname $ARGV[0];
+            my $base    = basename $ARGV[0], '.gz', '.bz2', '.fasta', '.fa';
+
+            "$dir/$base.infile"
+        }
+        else
+        {
+            ''
+        }
+    };
+
+    $argz{ tmpdir }
+    ||= @ARGV
+    ? dirname $ARGV[0]
+    : '/var/tmp'
+    ;
+
+    if( $argz{ jobs } < 0 )
     {
         # obviously linux-specific. 
         # more portable approach would be a switch 
@@ -78,11 +100,11 @@ my $cmdline
 
             local $/    = "\n";
 
-            grep /^processor/, <$fh>
+            $argz{ jobs }   = grep /^processor/, <$fh>;
         }
         else
         {
-            1
+            $argz{ jobs }   = 1;
         }
     };
 

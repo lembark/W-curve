@@ -12,8 +12,9 @@ use Parallel::Queue;
 
 use File::Basename;
 
-use File::Temp      qw( tempfile );
-use Scalar::Util    qw( reftype );
+use File::Path      qw( make_path remove_tree   );
+use File::Temp      qw( tempfile                );
+use Scalar::Util    qw( reftype                 );
 
 use Exporter::Proxy qw( dist_matrix );
 
@@ -21,17 +22,29 @@ use Exporter::Proxy qw( dist_matrix );
 # package variables
 ########################################################################
 
+our $verbose    = '';
+
 my %defaultz
 = qw
 (
     jobs    1
     tmpdir  /var/tmp
-    outdir  /var/tmp
+    output  /var/tmp/w-curve.infile
 
     frag    FloatCyl
     comp    MatchingPeaks
     score   SumChunks
 );
+
+$defaultz{ session } = '';
+
+my $rmtree_optz =
+{
+    safe        => 1,
+    keep_root   => 1,
+};
+
+my $base    = basename $0;
 
 ########################################################################
 # utility subs
@@ -39,18 +52,30 @@ my %defaultz
 
 sub config
 {
-    my %config  = %defaultz;
+    my %config  = ( pid => $$ );
 
     if( 'HASH' eq reftype $_[0] )
     {
         my $argz    = shift;
 
-        while( my ($k,$v) = each %$argz )
+        while( my ($k,$v) = each %defaultz )
         {
-            defined $v
-            and $config{ $k } = $v;
+            $config{ $k } = $argz->{ $k } // $v;
         }
     }
+
+    $config{ session } ||= join '-', $base, int rand 32678;
+    $config{ workdir } //= "$config{ tmpdir }/$config{ session }";
+    $config{ outfile } //= "$base.infile";
+
+    print "Working directory: $config{ workdir }"
+    if $verbose;
+
+    $config{ comp }
+    = WCurve::Compare->new( $config{ comp } );
+
+    $config{ score }
+    = WCurve::Score->new( $config{ score } );
 
     wantarray
     ?  %config
@@ -59,56 +84,61 @@ sub config
 
 sub prepare_files
 {
-$DB::single = 1;
-
     my $config  = shift;
 
-    # curves are left on the stack.
+    # curves are on the stack
 
-    my $i       = $#_;
-    my $base    = basename $0;
+    my $workdir = $config->{ workdir };
 
-    my $tmpfile = "$config->{ tmpdir }/$base-$$";
+    -e $workdir || make_path $workdir
+    or die "Failed make_path $workdir: $!";
 
     my @rowz
     = map
     {
-        [ tempfile "$tmpfile-row-$_.XXXX" ]
+        File::Temp->new( DIR => $workdir, UNLINK => 0 )
     }
-    ( 0 .. $i );
+    ( 1 .. @_ );
 
-    my $out = [ tempfile "$config->{ outdir }/$base.infile.XXXX" ];
-    
-    ( $out, \@rowz )
+    wantarray
+    ?  @rowz
+    : \@rowz
 }
 
 sub generate_row
 {
-$DB::single = 1;
+    my ( $config, $i, $tmpfile, $curvz ) = @_;
 
-    my ( $config, $i, $fh, $curvz ) = @_;
-
-    my $comp    = WCurve::Compare->new( $config->{ comp } );
-    my $score   = WCurve::Score->new( $config->{ score } );
+    my ( $comp, $score ) 
+    = @{ $config }{ qw( comp score ) };
 
     my $wc  = $curvz->[ $i ];
+    
+    local $\;
 
     for( @{ $curvz }[ ++$i .. $#$curvz ] )
     {
+        local $0    = "Compare: $wc $_";
+
         my $chunkz  =  $comp->compare( $wc, $_ );
 
-        print $fh $score->score( $chunkz ), "\t";
+        print $tmpfile $score->compute( $chunkz ), "\t";
     }
 
-    close $fh;
+    $tmpfile->flush;
 
-    return
+    my $size = -s $tmpfile;
+
+    warn "\nOutput: '$wc' ($tmpfile, $size)\n"
+    if $verbose;
+
+    $$ != $config->{ pid }
+    ? exit 0
+    : return
 }
 
 sub merge_rows
 {
-$DB::single = 1;
-
     my $rowz    = shift;
 
     # matrix starts out as upper triangular.
@@ -116,21 +146,22 @@ $DB::single = 1;
     my @matrix 
     = map
     {
-        my $path    = $_->[1];
+        print "Read row: $_\n"
+        if $verbose;
 
-        open my $fh, '<', $path;
+        $_->seek( 0, 0 );
 
         local $/;
 
-        [ 0, split /\t/, <$fh> ]
+        [ 0, split /\t/, <$_> ]
     }
     @$rowz;
 
     # reflecting the columns into rows squares it.
 
-    my $i   = -1;
+    my $i   = 0;
 
-    for my $row ( @matrix )
+    for my $row ( @matrix[1..$#matrix] )
     {
         my $j       = $i++;
 
@@ -144,38 +175,37 @@ $DB::single = 1;
 
 sub output_phylip
 {
-$DB::single = 1;
+    my ( $config, $curvz, $matrix ) = @_;
 
-    my ( $out, $curvz, $rowz ) = @_;
+    my ( $out, $path ) = tempfile "$config->{ output }.XXXX";
+
+    print "\nOutput: $config->{ output }\n"
+    if $verbose;
 
     print $out scalar @$curvz;
     print $out "\n";
 
-    for my $row ( @$rowz )
+    for( 0 .. $#$matrix )
     {
-        printf $out '%-10.10s' => shift @$curvz;
-        printf $out "\t%8.6f" => $_ for @$row;
+        printf $out '%-10.10s'  => $curvz->[$_];
+        printf $out "\t%8.6f"   => $_ for @{ $matrix->[$_] };
         print  $out "\n";
     }
 
     close $out;
+
+    rename $path, $config->{ output };
 
     return
 }
 
 sub cleanup
 {
-$DB::single = 1;
+    my $config  = shift;
 
-    my ( $out, $rowz ) = @_;
+    remove_tree $config->{ workdir }, $rmtree_optz;
 
-    unlink $_->[1] for @$rowz;
-
-    ( my $final = $out->[1] ) =~ s/[.]\w+/;
-
-    rename $out->[1], $path;
-
-    $path
+    return
 }
 
 ########################################################################
@@ -184,35 +214,45 @@ $DB::single = 1;
 
 sub dist_matrix
 {
-$DB::single = 1;
-
-    my $wc  = shift;
-
+    my $wc      = shift;
     my $config  = &config;
 
-    my $curvz   = \@_;
+    local $verbose  = $config->{ verbose } // $wc->verbose // -t;
 
-    my ( $out, $rowz ) = prepare_files $config, @_;
-
-    my @queue
-    = map
+    for( $config->{ outfile } )
     {
-        my $i   = $_;
-
-        sub { generate_row $config, $i, $rowz->[$i][0], $curvz }
+        -e      or last;
+        unlink  or die;
     }
-    ( 0 .. $#$curvz );
 
-    eval { run_queue $config->{ jobs }, @queue }
-    and die "Incomplete queue: $@";
+    my $output
+    = eval
+    {
+        my $curvz   = \@_;
+        my $rowz    = prepare_files $config, @_;
 
-    my $square  = merge_rows $rowz;
+        my @queue
+        = map
+        {
+            my $i   = $_;
 
-    output_phylip $out->[0], $curvz, $square;
+            sub { generate_row $config, $i, $rowz->[$i], $curvz }
+        }
+        ( 0 .. $#$curvz );
 
-    # caller gets back the output path;
+        runqueue $config->{ jobs }, @queue
+        and die "Unfinished queue";
 
-    cleanup $out, $rowz;
+        my $square  = merge_rows $rowz;
+
+        output_phylip $config, $curvz, $square;
+
+        $config->{ output }
+    };
+
+    cleanup $config;
+
+    $output
 }
 
 # keep require happy

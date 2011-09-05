@@ -105,7 +105,7 @@ my $dispatch
     'Matching Peaks:',
     $z0, $e0, $e0 - $z0, "$frag0",
     $z1, $e1, $e1 - $z1, "$frag1",
-    ;
+    if $verbose;
 
     $_->add_skip_chain( $parmz->{ radius } )
     for ( $frag0, $frag1 );

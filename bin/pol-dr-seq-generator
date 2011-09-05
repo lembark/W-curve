@@ -134,7 +134,7 @@ if( $resist )
 {
     my @known   = ();
 
-    my $end     = sprintf $format, $resist;
+    my $end     = sprintf $format, $resist - 1;
 
     for my $i ( $zero .. $end )
     {
@@ -165,7 +165,7 @@ if( $resist )
  
 if( $sample )
 {
-    my $end = sprintf $format, $sample;
+    my $end = sprintf $format, $sample - 1;
 
     for my $aa_seq ( [ @wild ] )
     {

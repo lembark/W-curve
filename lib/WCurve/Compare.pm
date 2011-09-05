@@ -179,7 +179,8 @@ sub single_single
 {
     my ( $comp, $wc0, $wc1 ) = @_;
 
-    print "\nCompare: [ $wc0 : $wc1 ]\n";
+    print "\nCompare: [ $wc0 : $wc1 ]\n"
+    if $comp->verbose;
 
     my @fragz   = map { ( $_->fragments )[0] } ( $wc0, $wc1 );
 

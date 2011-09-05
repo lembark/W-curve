@@ -1,5 +1,3 @@
-#!/opt/bin/perl
-
 ########################################################################D
 # housekeeping
 ########################################################################
@@ -8,13 +6,11 @@ package WCurve::Util::CurView;
 
 use v5.12;
 use FindBin::libs;
-use autodie qw(open close );
+use autodie qw( open close );
 
 use File::Basename;
-use JSON::XS;
 
 use WCurve;
-use WCurve::Util::ColorTable;
 
 use Exporter::Proxy
 qw
@@ -58,20 +54,22 @@ $DB::single = 1;
         "$dir/$base.json"
     };
 
-    open my $fh, '>', $path;
+    my $json    = $proto->read_seq( @_ )->curview;
 
-    my $json = $proto->read_seq( @_ )->curview;
+    open my $fh, '>', $path;
 
     local $\;
 
-    print $fh $json;
+    print $fh 
 
     close $fh;
 
     print STDERR "\nJSON output: $path\n"
     if $proto->verbose;
 
-    $path
+    wantarray
+    ? ( $path => $json )
+    : $path
 }
 
 # keep require happy
