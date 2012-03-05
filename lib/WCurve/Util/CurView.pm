@@ -39,14 +39,12 @@ my @stripz
 
 sub fasta2curview
 {
-$DB::single = 1;
-
     my $work_dir    = shift;
 
     my $path
     = do
     {
-        my $input       = $_->[0];
+        my $input       = $_[0];
 
         my $base        = basename $input, @stripz;
         my $dir         = $work_dir || dirname $input;
@@ -60,7 +58,7 @@ $DB::single = 1;
 
     local $\;
 
-    print $fh 
+    print $fh $json;
 
     close $fh;
 

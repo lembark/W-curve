@@ -13,7 +13,7 @@ use ArrayObj;
 use Carp;
 use File::Basename;
 
-use JSON::XS        qw( encode_json );
+use JSON::XS        qw();
 use List::Util      qw( sum );
 use Scalar::Util    qw( looks_like_number reftype blessed );
 use Symbol          qw( qualify qualify_to_ref );
@@ -300,6 +300,8 @@ sub write_template
 
 sub curview
 {
+    state $handler  = JSON::XS->can( 'encode_json' );
+
     my $wc  = shift;
 
     my @structz
@@ -307,9 +309,9 @@ sub curview
     {
         $_->curview
     }
-    $wc->fragmsnts;
+    $wc->fragments;
 
-    encode_json \@structz
+    $handler->( \@structz )
 }
 
 1
