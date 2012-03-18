@@ -13,7 +13,7 @@ use ArrayObj;
 use Carp;
 use File::Basename;
 
-use JSON::XS        qw( encode_json );
+use JSON::XS        qw();
 use List::Util      qw( sum );
 use Scalar::Util    qw( looks_like_number reftype blessed );
 use Symbol          qw( qualify qualify_to_ref );
@@ -294,12 +294,14 @@ sub write_template
     $wc
 }
 
-# called from dancer code, this will take in a 
+# called from curview-interface code, this will take in a 
 # fasta input (or path) and return the json-
 # encoded structure. 
 
 sub curview
 {
+    state $handler  = JSON::XS->can( 'encode_json' );
+
     my $wc  = shift;
 
     my @structz
