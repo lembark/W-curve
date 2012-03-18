@@ -1,0 +1,316 @@
+#!/opt/bin/perl
+########################################################################
+# housekeeping
+########################################################################
+
+use v5.12;
+use FindBin::libs;
+use autodie     qw( open close );
+
+use File::Basename;
+use Getopt::Long;
+use Parallel::Queue;
+use Pod::Usage;
+
+use File::Temp  qw( tempfile    );
+use List::Util  qw( max         );
+
+use WCurve;
+use WCurve::Compare;
+use WCurve::Score;
+
+use Parallel::Queue qw( export=process_rows );
+
+########################################################################
+# package variables
+########################################################################
+
+my %cmdline
+= do
+{
+    my %argz    = ();
+
+    my @optz
+    = qw
+    (
+        jobs=i
+
+        output=s
+
+        gap=f
+        skip=f
+
+        help!
+        verbose!
+    );
+
+    my %defz
+    = qw
+    (
+        jobs    1
+        gap     0
+        skip    0
+        verbose 0
+    );
+
+    if( GetOptions \%argz, @optz )
+    {
+        $argz{ verbose } ||= 0;
+
+        $argz{ help }
+        and pod2usage
+        -exitval    => 1,
+        -verbose    => $argz{ verbose } || 1
+    }
+    else
+    {
+        pod2usage
+        -exitval    => -1,
+        -message    => 'Invalid option',
+    }
+
+    $argz{ $_ } //= $defz{ $_ }
+    for keys %defz;
+
+    $argz{ jobs }
+    ||= do
+    {
+        # obviously linux-specific. 
+        # more portable approach would be a switch 
+        # on O/S type.
+
+        if( -e '/proc/cpuinfo' )
+        {
+            open my $fh, '<', '/proc/cpuinfo';
+
+            local $/    = "\n";
+
+            grep /^processor/, <$fh>
+        }
+        else
+        {
+            1
+        }
+    };
+
+    %argz
+};
+
+# dirname of output 
+
+my $input   = $ARGV[0];
+
+my ( $base, $dir )
+= do
+{
+    my $path    = $cmdline{ output } || $input;
+
+    fileparse $path, qw( .bz2 .gz .fasta .fa )
+};
+
+my $prefix  = "$dir/$base";
+
+my $proto   = WCurve         ->new( FloatCyl => 'Prototype' );
+my $comp    = WCurve::Compare->new( 'MatchingPeaks'         );
+my $score   = WCurve::Score  ->new( 'SumChunks'             );
+
+$score->indel_cost( $cmdline{ skip      } );
+$score->gap_cost  ( $cmdline{ gap       } );
+$score->verbose   ( $cmdline{ verbose   } );
+
+my @curvz   = $proto->read_seq;
+my $n       = $#curvz - 1;
+
+my $id_format   = '%-10.10s';
+my $val_format  = "\t%8.6f";
+
+my $outpath = "$prefix.infile";
+open my $output, '>', $outpath
+or die "$outpath: $!";
+
+my $zero    = '0' x length $n;
+
+my @row_filz
+= map
+{
+    my $path    = "$prefix-$_.row";
+
+    open my $fh, '>', $path
+    or die "$path: $!";
+
+    [ $path => $fh ]
+}
+( "$zero" .. "$n" );
+
+my @log_filz
+= map
+{
+    my $path    = "$prefix-$_.log";
+
+    open my $fh, '>', $path
+    or die "$path: $!";
+
+    [ $path => $fh ]
+}
+( "$zero" .. "$n" );
+
+########################################################################
+# utility subs
+########################################################################
+
+sub process_row
+{
+    my $i       = shift;
+
+    my $wc0 = $curvz[$i];
+
+    my ( $log_path, $log ) = @{ $log_filz[$i] };
+    my ( $row_path, $row ) = @{ $row_filz[$i] };
+
+    print "Row ($i / $n) : '$wc0' -> $log_path \n";
+
+    local *STDOUT   = $log;
+
+    local $,    = "\t";
+    local $\    = "\n";
+
+    print $row map
+    {
+        $0          = "compare-fasta $base $wc0 $_";
+
+        my $chunkz  = $comp->compare( $wc0, $_ );
+
+        $score->compute( $chunkz )
+    }
+    (
+        @curvz[ $i + 1 .. $#curvz ]
+    )
+    or die "$row_path: $!";
+
+    close $row          or die "$row_path: $!";
+    close $log          or die "$log_path: $!";
+
+    return
+}
+
+########################################################################
+# process the rows in parallel then accumulate the results
+########################################################################
+
+my @queue
+= map
+{
+    my $i   = $_;
+
+    sub { process_row $i }
+}
+( 0 .. $#curvz-1 );
+
+process_rows $cmdline{ jobs }, @queue;
+
+print STDOUT "Consolidating rows...\n";
+
+my @output
+= map
+{
+    my $path    = $_->[0];
+
+    my $row
+    = do
+    {
+        open my $fh, '<', $path or die "$path: $!";
+
+        local $/;
+
+        <$fh>
+    };
+
+    [ 0, split /\s+/, $row ]
+}
+@row_filz;
+
+push @output, [0];
+
+# convert the upper-triangular matrix to a square,
+# preserving the row headers.
+
+$DB::single = 1;
+
+my $i   = -1;
+
+for my $row ( @output )
+{
+    my $j       = $i++;
+
+    my @reflect = map { $_->[$i] } @output[ 0 .. $j ];
+
+    unshift $row, @reflect;
+}
+
+print $output scalar @curvz;
+print $output "\n";
+
+for( @output )
+{
+    my $wc  = shift @curvz;
+
+    printf $output '%-10.10s' => "$wc";
+    printf $output "\t%8.6f" => $_ for @$_;
+    print  $output "\n";
+}
+
+close $output
+or die "$outpath: $!";
+
+unlink $_->[0] for @row_filz, @log_filz;
+
+print STDOUT "\nOutput in: $outpath\n";
+
+0
+
+__END__
+
+=head1 NAME
+
+compare-fasta - generate square, phylip-format distance 
+matrix from sequences in a fasta file using the W-curve.
+
+=head1 SYNOPSIS
+
+    # output is "./path/to/foobar.infile"
+
+    compare-fasta ./path/to/foobar.fasta;
+
+    # run 4-way parallel.
+
+    compare-fasta --jobs=4 ./path/to/foobar.fasta;
+
+    # run one process for each core available
+    # on linux (where /proc/cpuinfo is available).
+
+    compare-fasta --jobs=0 ./path/to/foobar.fasta;
+
+    # multiple files can be used, which is handy for
+    # recycling wild or known-substitution sequences.
+    #
+    # output is based on the first path provided
+    # (foobar.infile in this case).
+
+    compare-fasta --jobs=0 ./path/to/foobar.fasta ./other/fasta/*;
+
+
+=head1 DESCRIPTION
+
+For a number of sequences stored in FASTA format, 
+a W-curve is generarted for each and they are all
+compared in parallel to produce an upper-triangular
+distance matrix. The matrix rows are collected
+together and reflected about the diagonal to get
+a square matrix.
+
+The resuilt is output in phylip format: a count on
+the first row, followed by rows consisting of 10-
+character identifiers and each distance preceeded
+by a tab.
+
+

@@ -39,14 +39,12 @@ my @stripz
 
 sub fasta2curview
 {
-$DB::single = 1;
-
     my $work_dir    = shift;
 
     my $path
     = do
     {
-        my $input       = $_->[0];
+        my $input       = $_[0];
 
         my $base        = basename $input, @stripz;
         my $dir         = $work_dir || dirname $input;
@@ -54,13 +52,13 @@ $DB::single = 1;
         "$dir/$base.json"
     };
 
-    my $json    = $proto->read_seq( @_ )->curview;
-
     open my $fh, '>', $path;
 
     local $\;
+    
+    my $json    = $proto->read_seq( @_ )->curview;
 
-    print $fh 
+    print $fh $json;
 
     close $fh;
 

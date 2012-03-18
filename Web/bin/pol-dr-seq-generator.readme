@@ -1,0 +1,48 @@
+NAME
+    pol-aa-seq-generator -- generate wild, drug-resistent, and patient pol
+    sequences using table of drug restistent AA.
+
+SYNOPSIS
+        # generate a fasta file with the wild type, 
+        # 8 drug-resistant sequences, 32 samples with
+        # varying drug resistance.
+
+        pol-dr-seq-generator --resist=8 --sample=32 > foo.fasta;
+        pol-dr-seq-generator -r 8 -s 32 > foo.fasta;
+
+        # leave out the wild type reference, 
+
+        pol-dr-seq-generator --nowild -r 8 -s 32 > foo.fasta;
+
+        # only generate the drug-resistant sequences
+
+        pol-dr-seq-generator --nowild -r 8 > foo.fasta;
+
+        # only generate the sample sequences 
+
+        pol-dr-seq-generator --nowild -s 32 > foo.fasta;
+
+        # perform substitutions on sample sequence
+        # 75% of the time (vs. 50% default). 
+        # -p 100 replaces all bases (acts like --resist),
+        # -p 0 produces only wild sequences (P(replace) == 0).
+
+        pol-dr-seq-generator --percent=75 -s 32 > foo.fasta;
+        pol-dr-seq-generator -p 75 -s 32 > foo.fasta;
+
+DESCRIPTION
+    This performs substitutions on the HIV-1 HXB2 POL amnio acid ("AA")
+    sequence. The substitutions are derived from the Stanford HIV RT and
+    Protease Sequence Database
+
+        http://hivdb.stanford.edu/pages/genotype-rx.html
+
+    which provides a list of alternate substitutions found in drug-resistant
+    HIV-1 strains.
+
+    The code starts with a wild AA sequence, copies it, and inserts
+    alternates from the drug resistant list into the sequence. For the
+    drug-resistant sequences the probability of replacement is 100% and the
+    substitutions are chosen randomly from the list of alternates; samples
+    have replacements performed randomly with a default of 0.50 (50%).
+

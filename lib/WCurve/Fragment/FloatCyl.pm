@@ -22,6 +22,17 @@ use WCurve::Util::ColorTable qw( cyl2rgb );
 
 our $VERSION    = 01;
 
+my @buffer  = ();
+$#buffer    = 10_000;
+
+my @view_colorz =
+(
+    [ 255,   0,   0 ],  # by quadrant
+    [   0, 255,   0 ],
+    [ 127,   0, 127 ],
+    [   0, 127, 127 ],
+);
+
 ########################################################################
 # utility subs
 ########################################################################
@@ -287,22 +298,20 @@ sub porcupine
     return
 }
 
-# convert the struct to ( x, y, z, r, g, b )
+# convert the struct to ( x, y, r, g, b )
 
 sub curview
 {
+$DB::single = 1;
+
     my $frag   = shift;
 
     my $listh   = $frag->list->head;
 
-    # name, size, [ x, y, z, r, g, b ]
+    # name, size, [ x, y, r, g, b ]...
     # 0 placeholder is filled in below.
 
-    my @coordz =
-    (
-        "$frag",
-        0,
-    );
+    @buffer = ();
 
     while( my ( $radius, $angle ) = $listh->each )
     {
@@ -314,16 +323,18 @@ sub curview
         abs $_ > $TINY or $_ = 0
         for $x, $y;
 
-        # HSV color from angle/rad to RGB
+#        my $color   = cyl2rgb $radius, $angle;
 
-        my $color   = cyl2rgb $radius, $angle;
+        my $color   = $view_colorz[0];
 
-        # note the lack of Z-axis value.
-        
-        push @coordz, [ $x, $y, @$color ];
+        push @buffer, [ $x, $y, @$color ];
     }
 
-    $coordz[1]  = @coordz;
+    my $count   = @buffer;
+
+    my @coordz  = ( "$frag" => $count, @buffer );
+
+    $#buffer    = -1;
 
     wantarray
     ?  @coordz

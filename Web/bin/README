@@ -1,0 +1,10 @@
+These executables are used for basic comparison functions with the
+W-curve. The text documentation for each is in its *.readme file. 
+You can get HTML output with "pod2html" (see perldoc pod2html or
+perldoc pod2text for formatting options).
+
+Program                 Purpose
+====================    ===============================================================================
+compare-fasta           Use the W-curve algorithm to align and score the contents of fasta files.
+fasta2curview           Generate JSON output suitable for viewing with the Web viewer.
+pol-dr-seq-generator    Generate randomized HIV-1 Pol sequences based on drug-resistant LANL sequences.

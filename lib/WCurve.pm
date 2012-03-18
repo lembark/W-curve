@@ -305,11 +305,13 @@ sub curview
     my @structz
     = map
     {
-        $_->curview
+        scalar $_->curview
     }
-    $wc->fragmsnts;
+    $wc->fragments;
 
-    encode_json \@structz
+    # check that the viewer code handles multiple curves.
+
+    encode_json $structz[0]
 }
 
 1

@@ -1,0 +1,51 @@
+<?xml version="1.0"?>
+<glge>
+		<!--
+		Axis floating points 
+		-->
+		<mesh id="xline">
+			<positions>
+			-300.0,0,0,
+			300.0,0,0
+			</positions>
+		</mesh>
+		<mesh id="yline">
+			<positions>
+			0,-300,0,
+			0,300,0
+			</positions>
+		</mesh>
+		<mesh id="dot">
+			<positions>
+			0,0,0,
+			0,0,0
+			</positions>
+		</mesh>
+		<!--
+		We'll need a material to apply to our lines so set up a few colors to choose from
+		-->
+		<material id="red" specular="0" color="#f00" shadeless="TRUE" />
+		<material id="green" specular="0" color="#0f0" shadeless="TRUE" />
+		<material id="blue" specular="0" color="#00f" shadeless="TRUE" />
+		<material id="black" specular="0" color="#444" alpha="1.0" shadeless="TRUE" />
+		
+		<!--
+		Scene
+		-->
+		<scene id="mainscene" camera="#mainCamera" background-color="#888">
+			<!--
+			Axis lines
+			-->
+			<group id="graph" >
+				<object id="dot1" draw_type="DRAW_POINTS" point_size="8" mesh="#dot" material="#red"  />
+				<object id="xaxis" draw_type="DRAW_LINES" line_width="2" mesh="#xline" material="#black"  />
+				<object id="yaxis" draw_type="DRAW_LINES" line_width="2" mesh="#yline" material="#green"  />
+
+			</group>
+			<!--
+			Camera.
+			Note: The camera rotation is specified in radians and not degrees
+			-->
+			<camera id="mainCamera" loc_z="10" loc_y="0"   />
+		</scene>
+	</glge>

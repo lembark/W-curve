@@ -1,0 +1,54 @@
+#!/opt/bin/perl
+
+use v5.12;
+use FindBin::libs;
+
+use WCurve;
+use WCurve::Util::CurView;
+
+for my $input ( @ARGV )
+{
+    my $output  = fasta2curview '' => $input;
+
+<<<<<<< HEAD
+    print "CurView output: $input => $output\n";
+}
+=======
+print "CurView output: '$path'\n";
+>>>>>>> e7a1284c5671ad331cee5cef812af96a75f93951
+
+__END__
+
+=head1 NAME
+
+fasta2curview - generate output from fasta files for
+use by the CurView project's web viewer.
+
+=head1 SYNOPSIS
+
+    # output will be /path/to/file.json.
+
+    fasta2curview /path/to/file.fasta;
+
+
+
+=head1 DESCRIPTION
+
+The CurView project is a WebGL-based application 
+for viewing curves. fasta2curview generates output 
+for the application from fasta files for visual
+inspection.
+
+This uses the same library as our web interface
+but may be simpler to use in cases where the 
+CurView distrinbution can be loaded locally.
+
+
+=head1 AUTHOR
+
+Steven Lembark <lembark@wrkhors.com>
+
+=head1 LICENSE
+
+This code is licensensed under the same terms as
+Perl-5.14 itself.

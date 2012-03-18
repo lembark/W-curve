@@ -1,0 +1,23 @@
+NAME
+    fasta2curview - generate output from fasta files for use by the CurView
+    project's web viewer.
+
+SYNOPSIS
+        # output will be /path/to/file.json.
+
+        fasta2curview /path/to/file.fasta;
+
+DESCRIPTION
+    The CurView project is a WebGL-based application for viewing curves.
+    fasta2curview generates output for the application from fasta files for
+    visual inspection.
+
+    This uses the same library as our web interface but may be simpler to
+    use in cases where the CurView distrinbution can be loaded locally.
+
+AUTHOR
+    Steven Lembark <lembark@wrkhors.com>
+
+LICENSE
+    This code is licensensed under the same terms as Perl-5.14 itself.
+

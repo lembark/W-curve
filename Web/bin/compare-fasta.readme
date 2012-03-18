@@ -1,0 +1,36 @@
+NAME
+    compare-fasta - generate square, phylip-format distance matrix from
+    sequences in a fasta file using the W-curve.
+
+SYNOPSIS
+        # output is "./path/to/foobar.infile"
+
+        compare-fasta ./path/to/foobar.fasta;
+
+        # run 4-way parallel.
+
+        compare-fasta --jobs=4 ./path/to/foobar.fasta;
+
+        # run one process for each core available
+        # on linux (where /proc/cpuinfo is available).
+
+        compare-fasta --jobs=0 ./path/to/foobar.fasta;
+
+        # multiple files can be used, which is handy for
+        # recycling wild or known-substitution sequences.
+        #
+        # output is based on the first path provided
+        # (foobar.infile in this case).
+
+        compare-fasta --jobs=0 ./path/to/foobar.fasta ./other/fasta/*;
+
+DESCRIPTION
+    For a number of sequences stored in FASTA format, a W-curve is
+    generarted for each and they are all compared in parallel to produce an
+    upper-triangular distance matrix. The matrix rows are collected together
+    and reflected about the diagonal to get a square matrix.
+
+    The resuilt is output in phylip format: a count on the first row,
+    followed by rows consisting of 10- character identifiers and each
+    distance preceeded by a tab.
+

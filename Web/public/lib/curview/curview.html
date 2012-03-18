@@ -1,0 +1,1431 @@
+<!DOCTYPE html>
+
+<!--
+Run this file in browser- this bring scene and w-curve generation togethor.
+-->
+
+<html>
+<head>
+<title>W-Curve </title>
+<script type="text/javascript" src="/glge"></script> 
+<script type="text/javascript" src="/jquery_ui/js/jquery-1.5.1.min.js"></script>
+<script type="text/javascript" src="/jquery_ui/js/jquery-ui-1.8.13.custom.min.js"></script>
+<script type="text/javascript" src="/wcurve"></script>
+<link rel="Stylesheet" href="/css" />
+
+<style>
+
+body{
+   position:absolute;
+   padding:0;
+   margin:0;
+	background-color: #888; 
+	font-family:sans; 
+	color: #fff; 
+	font-size: 0.8em;
+   height: 100%;
+   width: 100%;
+}
+
+</style>
+
+</head>
+
+<body>
+   <div style="width:100%;height:80%;background-color:#000;">  
+      <div style="position:relative;float:left;width:98.5%;height:100%;">
+         <div id="leftSliders" style="position:relative;float:left;height:100%;width:4%;">
+            <div id="zoomContainer" style="position:relative;float:left;left:4%;margin-right:12%; height:100%; width:23%;">
+               <div id="sliderZoom" style="height:90%;width:100%;"></div>
+               <div id="arrowZoomUp" style="top:2%; height:3%;width:80%;left:10%;"></div>
+               <div id="arrowZoomDown" style="height:3%;width:80%;left:10%;top:1%;"></div>
+            </div>
+      
+            <div id="sliderVertical" style="position:relative;float:left; height:90%;width:23%;margin-right:4%;"></div>
+            <div id="focusPtYContainer" style="position:relative; float:left; height:100%; width:23%;"> 
+               <div id="sliderFocusPtY" style="float:left; height:90%;width:100%;"></div>
+               <div id="arrowFocusPtYUp" style="top:2%; height:3%; width:80%;left:10%;"></div>
+               <div id="arrowFocusPtYDown" style="height:3%; width:80%;left:10%;top:1%;"></div>
+            </div>
+         </div>
+         <div id="arrowHorizontalDown" style="float:left; margin-left:1%;width:1.25%;top:1%; "></div>
+         <div id="arrowHorizontalUp" style="float:left; margin-right:1%; width:1.25%; top:1%;"></div>
+         <div id="sliderHorizontal" style="float:left;width:90%;height:2.5%;top:1%;"></div>
+         <div id="canvasHolder"   class="ui-widget-content" style="position:relative;width:92%; height:92%;float:left;top:2%;background:#000;border:0px; ">
+            <canvas id="canvas"   width="1210" height="410" style="float:left;">  </canvas>  
+            
+         </div>
+         <div id="focusPtContainer" style="position:relative; float:left; width:96%;height:2.5%;">
+            <div id="arrowFocusPtDown" style="float:left; margin-left:1%; width:1.3%;"></div>
+            <div id="arrowFocusPtUp" style="float:left; margin-right:1%; width:1.3%;"></div>
+            <div id="sliderFocusPt" style="float:left;width:93.8%;height:100%;"></div>
+         </div>
+      </div>
+      <div style="float:left; width:1.5%; height:100%;">  
+         <div id="moveCurveContainer" style="position:relative; float:left; height:100%; width:60%;left:5%">
+            <div id="sliderMoveCurve" style="width:100%; height:90%;"></div>
+            <div id="arrowMoveCurveUp" style="top:2%; height:3%; width:90%; "></div>
+            <div id="arrowMoveCurveDown" style="top:0.9%;height:3%; width:90%; "></div>
+         </div>
+      </div>
+   </div>
+   
+   <div id="details"  style="height:20%;">
+      <div id="debug" style="float:left;width:100%;height:20%;"></div>
+      <div style="position:absolute; right:2%;" >
+         <input id="baseNum" type="text" value=0 size = 5 style="color:red;">
+         <input id="changeBase" type="button" value="Jump to Base"  onclick="changeBase();" ></select>
+      </div>
+      <div id="2ndLayer" style="position:relative;float:left;width:100%;height:20%"> 
+         <select id="backgroundCol" style="float:left;"  onchange="toggleBackground()" >
+            <option id="whiteColor" value=rgb(256,256,256)>white</option>
+            <option id="blackColor" value="rgb(0,0,0)">black</option>
+            <option id="blueColor" value="rgb(200,200,256)">blue</option>
+            <option id="redColor" value=rgb(150,0,0)>red</option>
+            <option id="greenColor" value="rgb(144,256,144)">green</option>
+         </select>
+         <div id="sliderColor" style="float:left; left:2%;width:12%;height:40%;top:7%;"></div>
+         <div style="float:left;position:relative;left:5%;width:12%;">Move Camera:</div>
+         <select id="cameraPlacement"   style="position:relative;float:left;" onchange="moveCamera()"></select>
+         <nobr style="float:left;position:relative; left:5%;width:11%">Grab Curve:</nobr>
+         <select id="curveSelection"  onchange="selectCurve()" style="float:left;" ></select>
+         <input type="button" value="Center Curve" onclick="centerCurve()" style="position:relative;left:5%;float:left;" ></select>
+      </div>
+      <div id="3rdLayer" style="position:relative;float:left;width:100%; height:25%;top:5%;">
+         <p style="float:left">JSON or FASTA Files: </p> <input style="float:left;" id="curveName" type="file" multiple />
+         <input style="position:relative; float:left;" type="button" value="Add Curve" onclick="handleFiles()" />
+         <input style="position:relative; float:left; margin-left:2%;" type="button" value="Remove Curve" onclick="removeCurve();" />
+      </div>
+      <div id="4thLayer" style="position:relative;float:left;width:100%; height:5%;">
+         <p>Tool used to compare W-curves to help in the research of biology.</p>
+      </div>
+      
+   </div>
+
+
+<script>
+window.URL = window.URL || window.webkitURL;
+
+/**************************************************
+                  Global variables
+***************************************************/
+
+var canvas = document.getElementById( 'canvas' )         // The canvas that holds the w-curve scene
+var renderer = new GLGE.Renderer( canvas );              // Renderer that renders the scene on the canvas
+var XMLdoc = new GLGE.Document();                        // Reference to the xml file
+var curves;                                              // An array of wcurves
+var sceneCamera;                                         // The scene's camera
+var dot;                                                 // Highlights the focal point of the camera
+var scene;                                               // The scene that the wcurve will be in
+var numberPts;                                           // The number of points in the w-curve
+var zValue;                                              // The constant spacing between points in the z-direction
+var isACurve;                                            // Boolean value: holds true if the file provided is a valid curve 
+var intervalID;                                          // ID of the interval that calls the updateValues() function
+var selectedCurve=0;                                     // The number of the curve selected in the Grab Curve dropdown menu 
+var spaceBetweenCurves = 1;                              // The space between curves in the y-direction
+var numberOfCurves = 1;                                  // The current number of curves in the scene                            
+var callsToAnimate;                                      // An array of the number of times animateTheSlider() function has been called (used to provide smooth animation)
+var animateID;                                           // An array of IDs of the interval that calls the animateTheSlider() function
+var numAnimations = 0;                                   // The number of animations currently running
+var buttonIntervalID;                                    // ID of the interval that calls the movePositive() and moveNegative() functions
+var rotateCurveID;                                       // The ID of the setInterval function that calls the rotateCurve function
+var correctRotationID;                                   // The ID of the setInterval function that calls the timer function
+var time = 0;                                            // The time elapsed since the last correction of rotation
+var focusPt = 0;                                         // The x-location of the focus point 
+var isFirstCurve=1;                                      // Boolean flag that holds true if the curve being added is the first in the session
+var maxNumPts;                                           // The number of points in the longest curve
+var maxZValue;                                           // The z spacing in between points of the longest curve
+var fileSelect = document.getElementById("curveName");   // Name of the selected file 
+
+/**************************************************
+                  (end) Global variables
+***************************************************/
+
+
+
+/**************************************************
+               On loading the XML file 
+***************************************************/
+
+
+XMLdoc.onLoad = function(){
+
+	scene = XMLdoc.getElement( "mainscene" );             // Instantiate the scene variable
+	renderer.setScene( scene );                           // Set the scene to render
+	renderer.render();                                    // Render the scene
+	dot = XMLdoc.getElement( "dot1" );                    // The dot that highlights the focal point
+   curves = new Array();                                 // An array of wcurve groups
+   animateID = new Array();                              // Array of animation interval ids
+   callsToAnimate = new Array();                         // Array of the number of calls during a specific interval
+	sceneCamera = scene.getCamera();                      // Get the scene's camera
+
+   // Rendering the scene
+	var lasttime=0;                                       // Time since last rendering
+	var frameratebuffer=60;                               // Buffer for the frame rate
+	start=parseInt(new Date().getTime());                 // Now is the starting time
+	var now;
+
+	function render()
+   {
+		now=parseInt(new Date().getTime());
+	   frameratebuffer=Math.round(((frameratebuffer*9)+1000/(now-lasttime))/10);
+	   document.getElementById("debug").innerHTML="Frame Rate:"+frameratebuffer;
+		renderer.render();
+		lasttime=now;
+	}
+
+	setInterval(render,1);                                // Render the scene every millisecond
+   
+   prepareColorSlider();                                 // Prepare the slider that adjusts the background color
+
+}
+
+/**************************************************
+            (end) On loading the XML file 
+***************************************************/
+
+
+
+
+/**************************************************
+                  File Handling 
+***************************************************/
+
+function handleFiles()
+{
+   var files = fileSelect.files;
+   if(!files.length)                                        // User tries to submit an empty form
+   {
+      alert("No files selected!");
+   }
+   else                                                     // User submits a file name
+   {
+      var list = document.createElement("ul");
+      for(var i = 0; i < files.length; i++)
+      {
+	var file = files[i];
+	if (file.type == "application/json") {
+      		var url = window.URL.createObjectURL(file);
+         	addJSONCurve(url);
+    	}
+	else if (file.name.indexOf("fasta") != -1) {	//MIME will implement application/fasta in the future- this is fine for now
+      		fastaGetAsText(file);
+    	}
+       else {
+		alert("File not JSON or FASTA. Given "+file.type);
+	}
+      }
+   }
+}
+
+function fastaGetAsText(readFile) {
+        
+  var reader = new FileReader();
+  
+  // Read file into memory as UTF-8      
+  reader.readAsText(readFile, "UTF-8");
+  
+  // Handle progress, success, and errors
+  reader.onload = fastaLoaded;
+  reader.onerror = errorHandler;
+}
+
+function fastaLoaded(evt) {  
+  // Obtain the read file data    
+  var fileString = evt.target.result;
+ 
+ $.getJSON("/fasta/"+fileString , function(data) {
+   addJSONCurve(data);
+  });
+ 
+}
+
+function errorHandler(evt) {
+  if(evt.target.error.name == "NOT_READABLE_ERR") {
+    alert("Was not able to read file contents.");
+  }
+}
+
+function sendFasta(file){
+
+	var xhr = new XMLHttpRequest();
+	xhr.addEventListener("load", uploadComplete, false);
+        xhr.addEventListener("error", uploadFailed, false);
+        xhr.open("POST", "/fasta/"+file.name);
+        xhr.send(file);
+}
+
+function uploadComplete(evt) {
+	/* This event is raised when the server send back a response */
+	alert(evt.target.responseText);
+}
+
+function uploadFailed(evt) {
+	alert("There was an error attempting to upload the file.");
+}
+
+/**************************************************
+               (end) File Handling 
+***************************************************/
+
+
+
+
+/**************************************************
+           Functions for Camera Manipulation 
+***************************************************/
+
+/**
+Adds curve selection options to the dropdown list when a curve is added 
+**/
+function addCameraOptions(index)
+{
+   var option1 = document.createElement("option");                   // Option to add to the camera placement dropdown 
+   var optionSelect = document.createElement("option");              // Option to add to the curve selection dropdown
+   var dropDown = document.getElementById("cameraPlacement");        // Camera placement dropdown
+   var dropDownSelect = document.getElementById("curveSelection");   // Curve selection dropdown
+   dropDownSelect.options.add(optionSelect);                         // Add option to dropdown
+   dropDown.options.add(option1);                                    // Add option to dropdown
+   
+   // Add text and values to the options
+   option1.text = "Curve "+numberOfCurves;                           
+   option1.value = curves.length-1;                                        
+   optionSelect.text = "Curve "+numberOfCurves;
+   optionSelect.value = curves.length-1;
+
+   // Add text labels to the curves
+   var text = new GLGE.Text();
+   text.setLocX(-2.5);
+   text.setText(option1.text);
+   text.setRotY(Math.PI);
+   text.setSize(40);
+   curves[index].addChild(text);
+}
+
+/**
+Removes options from the dropdown list when a curve is removed
+**/
+function removeCameraOption(index)
+{
+   var dropDown = document.getElementById("cameraPlacement");        // The camera placement dropdown
+   var dropDownSelect = document.getElementById("curveSelection");   // The curve selection dropdown
+
+   // Remove options from the dropdown menus
+   dropDown.removeChild(dropDown.options[index]);                    
+   dropDownSelect.removeChild(dropDownSelect.options[index]);
+}
+
+
+/**
+Moves the camera to match the selected curve location
+**/
+function moveCamera()
+{
+   // If the slider is not currently being animated
+   if(numAnimations==0)                                                   
+   {
+      var value = document.getElementById('cameraPlacement').value;                                   // Get the selected value from the camera placement dropdown
+      sceneCamera.setLocY(value);                                                                     // Set the camera to that value
+      dot.setLocY(value);                                                                             // Set the dot location to that value 
+      animateSlider("#sliderFocusPtY",$("#sliderFocusPtY").slider("option","value"),dot.getLocY());   // Animate the slider to move to that position
+   }
+}
+
+/**
+This function updates the focus point of the camera
+**/
+function updateFocusPt(newFocusLoc)
+{
+   var locx = sceneCamera.getLocX();                                                                  // X-location of the camera
+   var locz = sceneCamera.getLocZ();                                                                  // Z-location of the camera
+
+   // Rotate the camera to focus on the new point
+   if(newFocusLoc>locx)
+   {
+      sceneCamera.setRotY(-1*Math.atan2((newFocusLoc-locx),locz));  
+   }
+   else
+   {
+      sceneCamera.setRotY(Math.atan2((locx-newFocusLoc),locz));  
+   }
+   dot.setLocX(newFocusLoc);                                                                          // Update the dot's new location
+   focusPt = newFocusLoc;                                                                             // Set the focusPt's new position
+}
+
+/**
+This function turns the camera to look at a focus point as the camera moves along the x-axis
+**/
+function shiftCamera(newPosition)
+{
+   var locz = sceneCamera.getLocZ();                                                                  // Z-location of the camera
+   sceneCamera.setLocX(newPosition);                                                                  // Set the new x-location of the camera
+
+   // Turn the camera to keep staring at the same focus point
+   if(newPosition>focusPt)
+   {
+      sceneCamera.setRotY(Math.atan2((newPosition-focusPt),locz));  
+   }
+   else
+   {
+      sceneCamera.setRotY(-1*Math.atan2((focusPt-newPosition),locz));  
+   }
+}
+
+/**
+This function turns the camera to look at a focus point as the camera moves towards on the z-axis(zooms in)
+**/
+function zoomCamera(newPosition)
+{
+   var locx = sceneCamera.getLocX();                                                                  // X-location of the camera
+   sceneCamera.setLocZ(newPosition);                                                                  // Set the new z-location of the camera
+
+   // Turn the camera to keep following the same focus point
+   if(focusPt>locx)
+   {
+      sceneCamera.setRotY(-1*Math.atan2((focusPt-locx),newPosition));  
+   }
+   else
+   {
+      sceneCamera.setRotY(Math.atan2((locx-focusPt),newPosition));  
+   }
+}
+
+/**
+This functions moves the camera and the focus point so that the user is staring directly at a desired base number
+**/
+function changeBase()
+{
+   if(curves.length>0)
+   {
+      var max = $("#sliderFocusPt").slider("option","max");                                                       // Max focus position
+      var min = $("#sliderFocusPt").slider("option","min");                                                       // Min focus position
+      var step = $("#sliderFocusPt").slider("option","step");                                                     // The step of the focus slider
+      var baseInput = document.getElementById("baseNum");                                                         // The input into the textbox
+   
+      // If the user enters a valid base number
+      if(baseInput.value>=(min/step) && baseInput.value<=(max/step))                   
+      {
+         animateSlider("#sliderFocusPt",$("#sliderFocusPt").slider("option","value"),baseInput.value*step);       // Animate the focus slider to that point
+         animateSlider("#sliderHorizontal",$("#sliderHorizontal").slider("option","value"),baseInput.value*step); // Animate the camera to that point
+         updateFocusPt(baseInput.value*step);                                                                     // Put the focus point at that point
+         shiftCamera(baseInput.value*step);                                                                       // Put the camera at that point
+      }
+   }
+}
+
+/**************************************************
+      (end) Functions for Camera Manipulation 
+***************************************************/
+
+
+
+/**************************************************
+          Functions for Curve Manipulation 
+***************************************************/
+
+/**
+Selects the curve to be moved or removed
+**/
+function selectCurve()
+{
+   // If the slider is not currently being animated 
+   if(numAnimations==0)
+   {
+      var dropDown = document.getElementById("curveSelection");                                                            // Get the grab curve dropdown
+      selectedCurve = dropDown.value;                                                                                      // Get the selected value of the dropdown
+      animateSlider("#sliderMoveCurve",$("#sliderMoveCurve").slider("option","value"),curves[selectedCurve].getLocY());    // Animate the sldier to move to that position    
+   }
+}
+
+/**
+Removes the selected curve 
+**/
+function removeCurve()
+{
+   // Only try and remove a curve if there is one to remove
+   if(curves.length>0)
+   {
+      var dropDown = document.getElementById("cameraPlacement");              // The camera placement dropdown 
+      var dropDownSelect = document.getElementById("curveSelection");         // The curve selection dropdown
+      var curveLocY = curves[selectedCurve].getLocY();                        // The current y-location of the last curve added
+      var cameraLocY = sceneCamera.getLocY();                                 // The current y-location of the camera
+
+      scene.removeChild(curves[selectedCurve]);                               // Remove the curve from the scene
+      removeCameraOption(selectedCurve);                                      // Remove the camera option for that curve
+      curves.splice(selectedCurve,1);                                         // Splice out the selected curve from the curve array
+      
+      // Move any curves orgininally above the removed curve down to fill in the empty space (if they are still above the curve)
+      for(var i = selectedCurve; i<curves.length; i++)
+      {
+         // If the curve is currently above the selected curve's original position
+         if(curves[i].getLocY()>selectedCurve*spaceBetweenCurves)
+         {
+            curves[i].setLocY(curves[i].getLocY()-spaceBetweenCurves);        // Move the curve down a space
+            dropDown.options[i].value-=spaceBetweenCurves;                    // Update the camera placement dropdown menu's value
+         }
+         dropDownSelect.options[i].value-=spaceBetweenCurves;                 // Update the curve selection dropdown menu's value
+      }
+      
+      // Move any curves that were originally under the removed curve, but are now above the curve down to fill in the gaps
+      for(var i = 0; i<selectedCurve; i++)
+      {
+         // If the curve is currently above the selected curve's original position
+         if(curves[i].getLocY()>selectedCurve*spaceBetweenCurves)
+         {
+            curves[i].setLocY(curves[i].getLocY()-spaceBetweenCurves);        // Move the curve down a space
+         }
+      }
+   
+      dropDownSelect.value = selectedCurve;                                   // Update the selected value
+
+      // If the last curve added was the last curve removed...
+      if(selectedCurve>curves.length-1)
+      {
+         selectedCurve = curves.length-1;                                     // Set the selected curve to the top remaining curve
+         dropDownSelect.value = curves.length-1;                              // Updated the dropdown's selected value
+      }
+      
+      // If there are curves still remaining in the scene
+      if(curves.length>0)
+      {
+         selectedCurve = dropDownSelect.value;                                                                 // Update the selected curve's value
+         var max = $("#sliderFocusPtY").slider("option","max");                                                // Get the max y-location that the dot can move
+
+         // Update the FocusPtY and MoveCurve sliders
+         $("#sliderFocusPtY").slider("option","max",max-spaceBetweenCurves);
+         $("#sliderMoveCurve").slider("option","max",max-spaceBetweenCurves);
+         $("#sliderFocusPtY").slider("option","step",(max-spaceBetweenCurves)/100.0);
+         $("#sliderMoveCurve").slider("option","step",(max-spaceBetweenCurves)/100.0);
+         $("#sliderFocusPtY").slider("option","value",$("#sliderFocusPtY").slider("option","value"));
+         $("#sliderMoveCurve").slider("option","value",curves[selectedCurve].getLocY());
+      }
+      // If there are no curves left... 
+      else
+      {
+         selectedCurve = 0;                                                   
+         maxNumPts = 0;
+
+         // Reset the sliders
+         $("#sliderFocusPt").slider("option","min",0);
+         $("#sliderFocusPt").slider("option","max",0);
+         $("#sliderFocusPt").slider("option","value",0);
+         $("#sliderHorizontal").slider("option","min",0);
+         $("#sliderHorizontal").slider("option","max",0);
+         $("#sliderHorizontal").slider("option","value",0);
+         updateFocusPt(0);
+         shiftCamera(0);
+          
+      }
+
+      var newMax = $("#sliderFocusPtY").slider("option","max");               // The updated max of focusPt's y-location                               
+
+      //Move the camera down if the camera is above the new max value 
+      if(curves.length!=0&&cameraLocY>newMax)
+      {
+         dot.setLocY(newMax);
+         sceneCamera.setLocY(newMax);
+         dropDown.value = dropDown.options[curves.length-1].value;
+         $("#sliderFocusPtY").slider("option","value",newMax);
+         
+      }
+   }
+}
+
+/**
+Adds a wcurve to the scene
+**/
+function addJSONCurve(url)
+{
+   // Add a curve only if another curve is not currently being loaded in (prevents the user from rapidly clicking addCurve)
+   if(intervalID == undefined)
+   { 
+      var curveNum = curves.length;                                     // The curve number
+      curves[curveNum] = new GLGE.Group();                              // Instantiate the curve group
+      jsonToWCurve(url, curves[curveNum]);                        // Create the curve from the json file
+      intervalID = setInterval("updateValues();",100);                  // Wait for the curve to be generated before adding to the scene
+   }
+}
+
+function addFASTACurve(data)
+{
+   // Add a curve only if another curve is not currently being loaded in (prevents the user from rapidly clicking addCurve)
+   if(intervalID == undefined)
+   { 
+      var curveNum = curves.length;                                     // The curve number
+      curves[curveNum] = new GLGE.Group();                              // Instantiate the curve group
+      fastaToWCurve(data, curves[curveNum]);                        // Create the curve from the json file
+      intervalID = setInterval("updateValues();",100);                  // Wait for the curve to be generated before adding to the scene
+   }
+}
+
+/**
+Add the curve to the scene if it is ready, if the curve is not ready or invalid, take appropriate actions 
+**/
+function updateValues(index)
+{
+   // The file provided was not a valid curve
+   if(isACurve==0)
+   {
+      clearInterval(intervalID);                                        // Clear the interval calling updateValues(since both zValue and numberPts are defined)
+      intervalID = undefined;                                           // Reset the interval ID
+      curves.splice(curves.length-1,curves.length);                     // Remove the curve from the list of curves
+      isACurve = undefined;                                             // Reset the curve flag to undefined
+   }
+   // The curve is not yet generated or processed
+   else if(zValue==undefined || numberPts==undefined || isACurve == undefined )                  
+   { 
+      zValue = getZ();                                                  // Get the spacing between points on the z-axis 
+      numberPts = getNumPts();                                          // Get the number of points in the curve
+      isACurve = getIsCurve();                                          // Get whether not the curve being loaded is valid
+   }
+   // A valid curve was provided
+   else
+   {
+      var curveNumber = curves.length-1;                                // The curve number
+      clearInterval(intervalID);                                        // Clear the interval calling updateValues(since both zValue and numberPts are defined)
+      intervalID = undefined;                                           // Reset the interval ID
+      if(curveNumber == 0)                                              // If this is the first curve that was added
+      {
+         //If this is the very first curve added to the scene... 
+         if(isFirstCurve)
+         {
+            //Prepare the document
+            $(document).ready
+            (
+               function()
+               {
+                  prepareCurveSliders();
+               }
+            ); 
+            isFirstCurve = 0;                                           // It is no longer the first curve added
+         }
+
+         maxNumPts = numberPts;                                         // Set the maximum number of points 
+         maxZValue = zValue;                                            // Set the z-spacing between points 
+
+         // Set the slider values
+         $("#sliderFocusPt").slider("option","max",numberPts*zValue);               
+         $("#sliderFocusPt").slider("option","step",zValue);
+         $("#sliderFocusPt").slider("option","value",dot.getLocX());
+         var focusMin = $("#sliderFocusPt").slider("option","min");
+         var focusMax = $("#sliderFocusPt").slider("option","max");
+         var focusStep = $("#sliderFocusPt").slider("option","step");
+         $("#sliderHorizontal").slider("option","min",focusMin-300*focusStep);
+         $("#sliderHorizontal").slider("option","max",1*focusMax+300*focusStep);
+         $("#sliderHorizontal").slider("option","step",focusStep);
+         $("#sliderHorizontal").slider("option","value",sceneCamera.getLocX());
+
+      }
+      else                                                              // If this is not the first curve added
+      {
+         
+         if(numberPts > maxNumPts)
+         {
+            // Update the max values
+            maxNumPts = numberPts;
+            maxZValue = zValue;
+
+            // Set the slider values
+            $("#sliderFocusPt").slider("option","max",numberPts*zValue);               
+            $("#sliderFocusPt").slider("option","step",zValue);
+            $("#sliderFocusPt").slider("option","value",dot.getLocX());
+            var focusMin = $("#sliderFocusPt").slider("option","min");
+            var focusMax = $("#sliderFocusPt").slider("option","max");
+            var focusStep = $("#sliderFocusPt").slider("option","step");
+            $("#sliderHorizontal").slider("option","min",focusMin-300*focusStep);
+            $("#sliderHorizontal").slider("option","max",1*focusMax+300*focusStep);
+            $("#sliderHorizontal").slider("option","step",focusStep);
+            $("#sliderHorizontal").slider("option","value",sceneCamera.getLocX());
+         }
+
+         curves[curveNumber].setRotX(curves[0].getRotX());           
+
+         // Line up the curve's rotation with those below it
+         $("#sliderFocusPtY").slider("option","max",curveNumber);
+         $("#sliderMoveCurve").slider("option","max",curveNumber);
+         var max = $("#sliderFocusPtY").slider("option","max");
+         $("#sliderFocusPtY").slider("option","step",max/100.0);
+         $("#sliderMoveCurve").slider("option","step",max/100.0);
+         $("#sliderFocusPtY").slider("option","value",$("#sliderFocusPtY").slider("option","value"));
+         $("#sliderMoveCurve").slider("option","value",$("#sliderMoveCurve").slider("option","value"));
+      }
+
+
+      curves[curveNumber].setLocY(1*curveNumber);                       // Set the y-location of the curve
+      addCameraOptions(curveNumber);                                    // Add the options to the dropdown menu
+      scene.addChild(curves[curveNumber]);                              // Add the curve to the scene
+      isACurve=undefined;                                               // Reset isACurve
+      numberOfCurves++;                                                 // Increment the number of curves
+   }
+}
+
+/**
+Centers the selected curve to the nearest prespaced position
+**/
+function centerCurve()
+{
+   // If a curve slider is not currently being animated
+   if(numAnimations==0)
+   {
+      var currentLocation = curves[selectedCurve].getLocY();            // The current location of the curve
+      var min = Math.floor(currentLocation/spaceBetweenCurves);         // The space below the curve
+      var max = 1*min+1*spaceBetweenCurves;                             // The space above the curve
+      var closest;                                                      // The closest space to the curve's current location 
+
+      // If the curve is closer to the max location...
+      if((max-currentLocation)<(currentLocation-min))
+      {
+         closest = max;                                                 
+      }  
+      // If the curve is closer to the min location...
+      else
+      {
+         closest = min;
+      }
+      curves[selectedCurve].setLocY(closest);                                                // Set the curve's y-location
+      document.getElementById("cameraPlacement").options[selectedCurve].value=closest;       // Update the curve lock-on value 
+      animateSlider("#sliderMoveCurve",currentLocation,closest);                             // Animate the slider to the new location
+   }
+}
+
+/**
+This function rotates the curve in the appropriate direction by PI/96 every time it is called.  It will be called by the setInterval function
+**/
+function rotateCurve(rotx,direction)
+{
+   // Rotate the curve by a set increment in the appropriate direction
+   if(direction > 0)
+   {
+      for(var j=0; j<curves.length; j++)
+      {
+         curves[j].setRotX(1*rotx+1*Math.PI/96);
+      }
+   }
+   else
+   {
+      for(var j=0; j<curves.length; j++)
+      {
+         curves[j].setRotX(1*rotx-1*Math.PI/96);
+      }
+   }
+}
+
+/**
+The timer function simply keeps a count of the time since the last rotation correction.  We need this
+because if the user is rapidly sliding the handle, the setInterval function won't be called at all due
+to the fact that the interval is constantly being reset and the first call to rotateCurve never happens.
+Without this function, the curve would appear static during rapid sliding of the slider handle.
+**/
+function timer()
+{
+   time += 1;
+}
+
+/**************************************************
+      (end) Functions for Curve Manipulation 
+***************************************************/
+
+/**************************************************
+          Functions for slider animation 
+***************************************************/
+
+/**
+Function for animating sliders
+**/
+function animateSlider(sliderName,startValue,endValue)
+{
+   var step = (endValue-startValue)/100.0;                                                   // The amount that each call to animateTheSlider will move the slider
+
+   callsToAnimate[animateID.length]=1;                                                       // Initialize the counter for the calls to the helper function
+   numAnimations++;                                                                          // Increment the counter for the number of animations
+   
+   var index = callsToAnimate.length - 1;                                                    // Array index
+   
+   // Call set an interval to incrementally change the slider position (animating) 
+   animateID[index] = setInterval(function(){animateTheSlider(sliderName,startValue,step,index);},3);     
+}
+
+/**
+Helper function for slider animation (this gets called at an interval by animateSlider())
+**/
+function animateTheSlider(sliderName,startValue,step,animationNumber)
+{
+   $(sliderName).slider("option","value",1*startValue+callsToAnimate[animationNumber]*step); // Get the slider's current value
+   callsToAnimate[animationNumber]++;                                                        // Update the number of calls to this function
+
+   // If the animation is finished...
+   if(callsToAnimate[animationNumber]>100)                                                                    
+   {
+      clearInterval(animateID[animationNumber]);                                             // Clear the interval that calls this function
+      delete callsToAnimate[animationNumber];                                                // Reset callsToAnimate
+      delete animateID[animationNumber];                                                     // Reset animateID
+      numAnimations--;                                                                       // Decrement the calls to animate counter
+
+      // If all animations have stopped
+      if(numAnimations == 0)
+      {
+         callsToAnimate = new Array();                                                       // Clear animation arrays
+         animateID = new Array();
+      }
+   }
+}
+
+/**
+Manually moves the slider in the positive direction
+**/
+function movePositive(sliderName,timing,stepMultiple)
+{
+   var value = $(sliderName).slider("option","value");                                                // The current value of the slider
+   var max = $(sliderName).slider("option","max");                                                    // The current max value of the slider
+   var step = $(sliderName).slider("option","step");                                                  // The current step of the slider
+
+   // If the value of the slider is less than the max...
+   if(value<max)
+   {
+      var s = $(sliderName).slider();                                                                 // Get the slider as an object
+      var newValue = 1*value+1*step*stepMultiple;                                                     // The new value to move to 
+   
+      // If we exceed the max slider value...
+      if(newValue>max)
+      {
+         newValue = max;                                                                              // Move to the max position
+      }
+   
+      s.slider("option","value",newValue);                                                            // Increment the slider value by a given increment
+      var val = s.slider("option","value");                                                           // Get that new value 
+      s.slider("option","slide").call(s,null,{handle: $('.ui-slider-handle',s),value: val });         // Manually trigger a slide
+   }
+   buttonIntervalID = setTimeout(function(){movePositive(sliderName,timing,stepMultiple);},timing);   // Keep calling this as long as the user has the mouse button down
+}
+
+/**
+Manually moves the slider in the negative direction
+**/
+function moveNegative(sliderName,timing,stepMultiple)
+{
+   var value = $(sliderName).slider("option","value");                                                // The current value of the slider
+   var min = $(sliderName).slider("option","min");                                                    // The current max value of the slider
+   var step = $(sliderName).slider("option","step");                                                  // The current step of the slider
+      
+   // If the value of the slider is greater than the min...
+   if(value>min)
+   {
+      var s = $(sliderName).slider();                                                                 // Get the slider as an object
+      var newValue = 1*value-1*step*stepMultiple;
+      
+      // If we exceed the min slider value...
+      if(newValue<min)
+      {
+         newValue = min;                                                                              // Move to the min position
+      }
+
+      s.slider("option","value",newValue);                                                            // Increment the slider value by a given increment
+      var val = s.slider("option","value");                                                           // Get that new value
+      s.slider("option","slide").call(s,null,{handle: $('.ui-slider-handle',s),value: val });         // Manually trigger a slide
+      
+   }
+   buttonIntervalID = setTimeout(function(){moveNegative(sliderName,timing,stepMultiple);},timing);   // Keep calling this function as long as the user presses the mouse 
+}
+
+/**
+Clears the interval set by moveNegative or movePositive
+**/
+function buttonUp()
+{
+   clearTimeout(buttonIntervalID);
+   buttonIntervalID=undefined;
+}
+
+/**************************************************
+     (end) Functions for slider animation 
+***************************************************/
+
+
+
+/**************************************************
+    Functions for changing the background colors 
+***************************************************/
+   
+/**
+Change the background color 
+**/
+function toggleBackground()
+{
+   var options = document.getElementById('backgroundCol');                    // Get the list of color options
+   var color = options[options.selectedIndex].id;                             // Get the id of the selected color
+   $("#sliderColor").slider("option","color",color);                          // Set the color flag in the slider to the appropriate name
+
+   // Set the approprite default background color
+   if(color=='whiteColor')
+   {
+      $("#sliderColor").slider("option","value",512);
+   }
+   else if(color=='blackColor')
+   {
+      $("#sliderColor").slider("option","value",0);
+   }
+   else if(color=='redColor')
+   {
+      $("#sliderColor").slider("option","value",150);
+   }
+   else if(color=='greenColor')
+   {
+      $("#sliderColor").slider("option","value",400);
+   }
+   else
+   {
+      $("#sliderColor").slider("option","value",456);
+   }
+
+   $("#sliderColor .ui-slider-handle").css('background',options.value);       // Change handle color to match the background 
+   scene.setBackgroundColor(options.value);                                   // Change the background color 
+}
+
+/**
+Convert red, blue, and green color (each ranging from 0-256) to a string describing on color
+**/
+function parseColor(red,blue,green)
+{
+     return "rgb("+red+","+blue+","+green+")";
+}
+
+/**
+Adjusts the red hues of the background
+**/
+function redHues(value)
+{
+   var color;
+
+   if(value <= 256)
+   {
+      color = parseColor(value,0,0);
+      scene.setBackgroundColor(color);
+      $("#sliderColor .ui-slider-handle").css('background',color);            // Change handle color when it is slid
+   }
+   else
+   {
+      color = parseColor(256,value-256,value-256);
+      scene.setBackgroundColor(color);
+      $("#sliderColor .ui-slider-handle").css('background',color);     
+   }
+}
+
+/**
+Adjusts the green hues of the background
+**/
+function greenHues(value)
+{
+   var color;
+   if(value <= 256)
+   {
+      color = parseColor(0,value,0);
+      scene.setBackgroundColor(color);
+      $("#sliderColor .ui-slider-handle").css('background',color);     
+   }
+   else
+   {
+      color = parseColor(value-256,256,value-256);
+      scene.setBackgroundColor(color);
+      $("#sliderColor .ui-slider-handle").css('background',color);    
+   }
+}
+
+/**
+Adjusts the blue hues of the background
+**/
+function blueHues(value)
+{
+   var color;
+   if(value <= 256)
+   {
+      color = parseColor(0,0,value);
+      scene.setBackgroundColor(color);
+      $("#sliderColor .ui-slider-handle").css('background',color);     
+   }
+   else
+   {
+      color = parseColor(value-256,value-256,value);
+      scene.setBackgroundColor(color);
+      $("#sliderColor .ui-slider-handle").css('background',color);     
+   }
+}
+
+/**
+Adjusts the hue from white to black with gray in between
+**/
+function whiteHues(value)
+{
+   var color = parseColor(value/2,value/2,value/2);
+   scene.setBackgroundColor(color);
+   $("#sliderColor .ui-slider-handle").css('background',color);     
+}
+
+/**************************************************
+(end) Functions for changing the background colors 
+***************************************************/
+
+
+
+/**************************************************
+     Functions for making sliders logarithmic 
+***************************************************/
+
+/**
+Returns log based values for a the range of the zoom slider   
+**/
+function logslider(value) 
+{
+  // value will be between min and max (linear scale) 
+  var min = $("#sliderZoom").slider("option","min");                    
+  var max = $("#sliderZoom").slider("option","max");                    
+
+  // The result should be between min and max (log based scale) 
+  var minv = Math.log(min+5);
+  var maxv = Math.log(max+5);
+
+  // calculate adjustment factor
+  var scale = (maxv-minv) / (max-min);
+
+  return Math.exp(1*minv + 1*scale*(value-min))-5;
+}
+
+/**
+Given a log-based value, find the corresponding linear value
+**/
+function reverseLogslider(value)
+{
+  var min = $("#sliderZoom").slider("option","min");                    
+  var max = $("#sliderZoom").slider("option","max");                    
+
+  var minv = Math.log(min+5);
+  var maxv = Math.log(max+5);
+
+  var scale = (maxv-minv) / (max-min);
+
+  return (Math.log(1*value+1*5)-minv)/scale+1*min;
+}
+
+/**************************************************
+  (end) Functions for making sliders logarithmic 
+***************************************************/
+
+
+
+
+/**************************************************
+      Sliders, buttons, and resizable objects 
+***************************************************/
+
+
+/**
+Adds curve slider 
+**/
+function prepareCurveSliders()
+{
+   /*----------------
+        Sliders
+   ----------------*/
+
+   /**
+   Slider that controls the rotation of the helix
+   **/
+   $("#sliderVertical").slider(
+   {
+      create: function(event,ui)
+      {
+         $("#sliderVertical .ui-slider-handle").css('background','gray');     //Initialize color of handle
+      },
+      start: function(event,ui)
+      {
+         $("#sliderVertical .ui-slider-handle").css('background','black');    //Change handle color when it is slid
+         correctRotationID = setInterval(timer,1);                            //Start the timer to keep track of the time elapsed
+
+      },
+      stop: function(event,ui)
+      {
+         clearInterval(rotateCurveID);                                        //Clear the setInterval function calling rotateCurve
+         clearInterval(correctRotationID);                                    //Clear the setInterval function calling timer
+         time = 0;                                                            //Reset the time to zero
+         $("#sliderVertical .ui-slider-handle").css('background','gray');     //Change the color back when sliding is finished
+         $("#sliderVertical").slider("option","value",0);                     //Return the handle to the 0 position
+         
+      },
+      step: 1,                                                                //The units of the step are the millisecond intervals used in calls to the setInterval func
+      min:-150,
+      max:150,                         
+      orientation:'vertical',
+      slide: function(event,ui)
+      {     
+            // This checks to see if the rotation needs to be corrected.  If enough time has passed during a slide that 
+            // rotateCurve hasn't been called by setInterval, manually call it 
+            if(time>Math.abs(ui.value)/10)
+            {
+               rotateCurve(curves[0].getRotX(),ui.value);
+               time = 0;
+            }
+            clearInterval(rotateCurveID);                                     //Clear the current setInterval function
+
+            //Set the interval for rotating the curve
+            rotateCurveID = setInterval(function(){rotateCurve(curves[0].getRotX(),ui.value);},150-Math.abs(ui.value));
+      }
+   });
+
+   /**
+   Slider that controls the camera's zoom
+   **/
+   $("#sliderZoom").slider(
+   {
+      create: function(event,ui)
+      {
+         //Set the starting value of the slider to the correct camera position on the log scale
+         $("#sliderZoom").slider("option","value",reverseLogslider($("#sliderZoom").slider("option","value"))); 
+
+         $("#sliderZoom .ui-slider-handle").css('background','violet');          // Initialize color of handle
+          
+      },
+      start: function(event,ui)
+      {
+         $("#sliderZoom .ui-slider-handle").css('background','darkviolet');      // Change handle color when it is slid
+      },
+      stop: function(event,ui)
+      {
+         $("#sliderZoom .ui-slider-handle").css('background','violet');          // Change the color back when sliding is finished
+   
+      },
+      step: .1,
+      min:1,
+      max:35,
+      value : sceneCamera.getLocZ(),
+      orientation:'vertical',
+      slide: function(event,ui)
+      {
+            zoomCamera(logslider(ui.value));                                     // Zoom in or out logarithmically 
+      }
+   });
+   
+   /**
+   Slider that controls the vertical position of the focus point of the camera   
+   **/
+   $("#sliderFocusPtY").slider(
+   {
+      create: function(event,ui)
+      {
+         $("#sliderFocusPtY .ui-slider-handle").css('background','tomato');      // Initialize the color of the handle
+      },
+      start: function(event,ui)
+      {
+         $("#sliderFocusPtY .ui-slider-handle").css('background','#f00');        // Change the color of the handle when it is slid
+      },
+      stop: function(event,ui)
+      {
+         $("#sliderFocusPtY .ui-slider-handle").css('background','tomato');      // Change the color back when sliding is finished
+      },
+      step:0,
+      min: 0,
+      max:0,
+      value:0,
+      orientation:'vertical',
+      slide: function(event,ui)
+      {
+         sceneCamera.setLocY(ui.value);                                          // Move the camera in the y-direction
+         dot.setLocY(ui.value);                                                  // Move the dot in the y-direction
+         
+      }
+   });
+
+   /**
+   Move the curve in the y-direction
+   **/
+   $("#sliderMoveCurve").slider(
+   {
+      create: function(event,ui)
+      {
+         $("#sliderMoveCurve .ui-slider-handle").css('background','lightblue');  // Initialize the color of the handle
+      },
+      start: function(event,ui)
+      {
+         $("#sliderMoveCurve .ui-slider-handle").css('background','blue');       // Change the color of the handle when it is slid
+      },
+      stop: function(event,ui)
+      {
+         $("#sliderMoveCurve .ui-slider-handle").css('background','lightblue');  // Change the color back when sliding is finished
+      },
+      step:0,
+      min: 0,
+      max:0,
+      value:0,
+      curve:0,
+      orientation:'vertical',
+      slide: function(event,ui)
+      {
+         // If there are more than on curves...
+         if(curves.length>1)
+         {
+            curves[selectedCurve].setLocY(ui.value);                                               // Move the curve in the y-direction
+
+            document.getElementById("cameraPlacement").options[selectedCurve].value=ui.value;      // Update the curve lock-on value 
+         }
+      }
+   });
+
+   /**
+   Slider that controls allows the user to rotate the camera to look left and right (eg. turning your head)
+   **/
+   $("#sliderFocusPt").slider(
+   {
+      create: function(event,ui)
+      {
+         $("#sliderFocusPt .ui-slider-handle").css('background','tomato');       // Initialize the color of the handle
+      },
+      start: function(event,ui)
+      {
+         $("#sliderFocusPt .ui-slider-handle").css('background','#f00');         // Change the color of the handle when it is slid
+      },
+      stop: function(event,ui)
+      {
+         $("#sliderFocusPt .ui-slider-handle").css('background','tomato');       // Change the color back when sliding is finished
+      },
+      step: .05,
+      min: 0,
+      max: 31.25,
+      value: 0,
+      orientation: 'horizontal',
+      slide: function(event,ui)
+      {
+         updateFocusPt(ui.value);                                                // Move the focus point in the z-direction
+         document.getElementById("baseNum").value = ui.value/$("#sliderFocusPt").slider("option","step");
+      } 
+   });
+      
+      
+
+   /**
+   Slider that controls the x-position of the curve
+   **/
+   $("#sliderHorizontal").slider(
+   {
+      create: function(event,ui)
+      {
+         $("#sliderHorizontal .ui-slider-handle").css('background','lightgreen');      //Initialize color of handle
+      },
+      start: function(event,ui)
+      {
+         $("#sliderHorizontal .ui-slider-handle").css('background','green');           //Change handle color when it is slid
+      },
+      stop: function(event,ui)
+      {
+         $("#sliderHorizontal .ui-slider-handle").css('background','lightgreen');      //Change the color back when sliding is finished
+      },
+      step: .05,
+      min: -10, 
+      max: 41.25,
+      value: 0,
+      slide: function(event,ui)
+      {
+         shiftCamera(ui.value);                                                        // Move the camera in the z-direction (while maintaining the focus point)
+      }
+   });
+
+
+   /*----------------
+     (end) Sliders
+   ----------------*/
+
+
+   /*----------------------------
+         Resizable objects 
+   ----------------------------*/
+   
+   /**
+   Make the canvas resizable
+   **/
+   $("#canvas").resizable(
+   {
+      resize: function(event,ui)
+      {
+         canvas.width = $(event.target).width();                                       // Get the current canvas width
+         canvas.height = $(event.target).height();                                     // Get the current canvas height
+         renderer.setScene( scene );                                                   // Reset the scene
+         renderer.render();                                                            // Render the scene
+      }
+   });
+
+   /*----------------------------
+     (end) Resizable objects 
+   ----------------------------*/
+
+
+
+   /*----------------------------
+             Buttons 
+   ----------------------------*/
+
+   /**
+   Buttons for zoom slider
+   **/
+   $("#arrowZoomUp").button(
+   {
+      icons: {primary:'ui-icon-arrowthick-1-n'}
+   });
+   $("#arrowZoomUp").mousedown(function(){movePositive("#sliderZoom",10,1)});
+   $("#arrowZoomUp").mouseup(function(){buttonUp();});
+
+   $("#arrowZoomDown").button(
+   {
+      icons: {primary:'ui-icon-arrowthick-1-s'}
+   });
+   $("#arrowZoomDown").mousedown(function(){moveNegative("#sliderZoom",10,1)});
+   $("#arrowZoomDown").mouseup(function(){buttonUp();});
+
+   /**
+   Buttons for FocusPtY slider
+   **/
+   $("#arrowFocusPtYUp").button(
+   {
+      icons: {primary:'ui-icon-arrowthick-1-n'}
+   });
+   $("#arrowFocusPtYUp").mousedown(function(){movePositive("#sliderFocusPtY",10,1);});
+   $("#arrowFocusPtYUp").mouseup(function(){buttonUp();});
+
+   $("#arrowFocusPtYDown").button(
+   {
+      icons: {primary:'ui-icon-arrowthick-1-s'}
+   });
+   $("#arrowFocusPtYDown").mousedown(function(){moveNegative("#sliderFocusPtY",10,1);});
+   $("#arrowFocusPtYDown").mouseup(function(){buttonUp();});
+
+   /**
+   Buttons for FocusPtY slider
+   **/
+   $("#arrowMoveCurveUp").button(
+   {
+      icons: {primary:'ui-icon-arrowthick-1-n'}
+   });
+   $("#arrowMoveCurveUp").mousedown(function(){movePositive("#sliderMoveCurve",10,1);});
+   $("#arrowMoveCurveUp").mouseup(function(){buttonUp();});
+
+   $("#arrowMoveCurveDown").button(
+   {
+      icons: {primary:'ui-icon-arrowthick-1-s'}
+   });
+      
+   $("#arrowMoveCurveDown").mousedown(function(){moveNegative("#sliderMoveCurve",10,1);});
+   $("#arrowMoveCurveDown").mouseup(function(){buttonUp();});
+
+   /**
+   Buttons for Horizontal slider
+   **/
+   $("#arrowHorizontalUp").button(
+   {
+      icons: {primary:'ui-icon-arrowthick-1-e'}
+   });
+   $("#arrowHorizontalUp").mousedown(function(){movePositive("#sliderHorizontal",1,10)});
+   $("#arrowHorizontalUp").mouseup(function(){buttonUp();});
+
+   $("#arrowHorizontalDown").button(
+   {
+      icons: {primary:'ui-icon-arrowthick-1-w'}
+   });
+   $("#arrowHorizontalDown").mousedown(function(){moveNegative("#sliderHorizontal",1,10);});
+   $("#arrowHorizontalDown").mouseup(function(){buttonUp();});
+
+   /**
+   Buttons for FocusPt slider
+   **/
+   $("#arrowFocusPtUp").button(
+   {
+      icons: {primary:'ui-icon-arrowthick-1-e'}
+   });
+   $("#arrowFocusPtUp").mousedown(function(){movePositive("#sliderFocusPt",1,10)});
+   $("#arrowFocusPtUp").mouseup(function(){buttonUp();});
+
+   $("#arrowFocusPtDown").button(
+   {
+      icons: {primary:'ui-icon-arrowthick-1-w'}
+   });
+   $("#arrowFocusPtDown").mousedown(function(){moveNegative("#sliderFocusPt",1,10);});
+   $("#arrowFocusPtDown").mouseup(function(){buttonUp();});
+
+   /*----------------------------
+            (ends) Buttons 
+   ----------------------------*/
+
+   /*----------------------------
+            Key Strokes 
+   ----------------------------*/
+
+   /**
+   Hitting enter while in the change base text box submits the new value
+   **/
+   $("#baseNum").keydown(function(event)
+   {
+      if(event.keyCode == 13)
+      {
+         $("#changeBase").click();
+      }
+   });
+
+   /*----------------------------
+         (end) Key Strokes 
+   ----------------------------*/
+}
+
+
+/**
+Adds the background color slider 
+**/
+function prepareColorSlider()
+{
+
+   /**
+   Slider that adjusts the background color of the scene
+   **/
+   $("#sliderColor").slider(
+   {
+      step: 1,
+      min: 0,
+      max: 512,
+      value: 512,
+      color: "whiteColor",
+      
+      slide: function(event,ui)
+      {
+         // Get the color that is selected by the user
+         var color = $("#sliderColor").slider("option","color"); 
+      
+         // Adjust the appropriate color's hue
+         if(color == 'redColor')
+         {
+            redHues(ui.value);
+         }
+         else if(color == 'blueColor')
+         {
+            blueHues(ui.value);
+         }
+         else if(color == 'greenColor')
+         {
+            greenHues(ui.value);
+         }
+         else
+         {
+            whiteHues(ui.value);
+         }
+      }
+    });
+}
+
+/**************************************************
+   (end) Sliders, buttons, and resizable objects 
+***************************************************/
+         
+         
+/**
+*Loads light box enviorment stated by the lightbox.xml
+*/
+XMLdoc.load("curview");
+
+</script>
+
+</body>
+</html>
+
